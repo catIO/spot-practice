@@ -18,6 +18,7 @@
       --md-sys-color-primary: #006a6a;
       --md-sys-color-primary-container: #6ff5f5;
     }
+
     @media (prefers-color-scheme: dark) {
       :root {
         --md-sys-color-background: #191c1c;
@@ -25,12 +26,17 @@
         --md-sys-color-primary-container: #004f4f;
       }
     }
+
     body {
       margin: 0;
       background-color: var(--md-sys-color-background);
       font-family: 'Inter', sans-serif;
     }
-    .hidden { display: none !important; }
+
+    .hidden {
+      display: none !important;
+    }
+
     .splash-container {
       display: flex;
       flex-direction: column;
@@ -41,6 +47,7 @@
       text-align: center;
       color: var(--md-sys-color-primary);
     }
+
     .loader {
       width: 48px;
       height: 48px;
@@ -49,12 +56,27 @@
       border-radius: 50%;
       animation: rotation 1s linear infinite;
     }
+
     @keyframes rotation {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
-    header, main { opacity: 0; transition: opacity 0.3s ease; }
-    .loaded header, .loaded main { opacity: 1; }
+
+    header,
+    main {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .loaded header,
+    .loaded main {
+      opacity: 1;
+    }
   </style>
 </head>
 
@@ -90,6 +112,9 @@
             <div id="music-container" class="music-container"></div>
             <div id="music-container-full" class="music-container music-container-full hidden"></div>
             <div id="loader" class="loader hidden"></div>
+            <button id="fullscreen-btn" class="floating-fullscreen-btn hidden" title="Toggle Fullscreen">
+              <span class="material-symbols-outlined">fullscreen</span>
+            </button>
           </div>
 
           <button id="next-page-btn" class="nav-side-btn hidden" title="Next Page (Right Arrow)">
@@ -112,19 +137,16 @@
               <option value="16">16 Bars</option>
             </select>
           </div>
-          
+
           <div id="passage-controls" class="mode-controls">
             <button id="new-passage-btn" class="filled">
               <span class="material-symbols-outlined">shuffle</span>
-              New Passage
+              New Spot
             </button>
           </div>
 
           <div id="full-score-controls" class="mode-controls hidden">
             <span id="page-indicator">1 / 10</span>
-            <button id="fullscreen-btn" class="tonal" title="Toggle Fullscreen">
-              <span class="material-symbols-outlined">fullscreen</span>
-            </button>
           </div>
 
           <div class="divider"></div>
@@ -133,7 +155,7 @@
             <span class="material-symbols-outlined">menu_book</span>
             View Full Score
           </button>
-          <button id="upload-new-btn" class="outlined">
+          <button id="upload-new-btn" class="outlined" title="Upload New Score">
             <span class="material-symbols-outlined">file_upload</span>
           </button>
         </div>

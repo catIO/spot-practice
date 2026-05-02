@@ -169,6 +169,40 @@ h1 {
   transform: scale(1.1);
 }
 
+/* Fullscreen toggle button — floats top-right of the score */
+.floating-fullscreen-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: #004d40; /* Strong dark green */
+  border: 1px solid rgba(0, 77, 64, 0.2);
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 50;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+
+.floating-fullscreen-btn:hover {
+  background: #e0f2f1;
+  transform: scale(1.1);
+}
+
+/* Hide the expand button when already in fullscreen mode */
+#score-nav-wrapper:fullscreen .floating-fullscreen-btn {
+  display: none !important;
+}
+
+
 .nav-side-btn {
   background: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-primary);
@@ -248,6 +282,10 @@ h1 {
   display: block !important;
   max-height: calc(100vh - 150px); /* never taller than the viewport */
   object-fit: contain;
+}
+
+#score-nav-wrapper:fullscreen .music-container-full svg {
+  max-height: 100vh; /* Use full height in fullscreen mode */
 }
 
 /* Full Score Mode: No scrolling, fit to screen */

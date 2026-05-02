@@ -16,27 +16,27 @@ let totalPages = 1;
 let osmdFullSVGs = []; // Extracted per-page SVGs from OSMD
 
 // ─── DOM ──────────────────────────────────────────────────────────────────────
-const uploadSection        = document.getElementById('upload-section');
-const viewerSection        = document.getElementById('viewer-section');
-const viewerCanvas         = document.getElementById('viewer-canvas');
-const musicContainer       = document.getElementById('music-container');
-const musicContainerFull   = document.getElementById('music-container-full');
-const fileInput            = document.getElementById('file-input');
-const statusBar            = document.getElementById('status-bar');
-const loader               = document.getElementById('loader');
+const uploadSection = document.getElementById('upload-section');
+const viewerSection = document.getElementById('viewer-section');
+const viewerCanvas = document.getElementById('viewer-canvas');
+const musicContainer = document.getElementById('music-container');
+const musicContainerFull = document.getElementById('music-container-full');
+const fileInput = document.getElementById('file-input');
+const statusBar = document.getElementById('status-bar');
+const loader = document.getElementById('loader');
 
-const newPassageBtn        = document.getElementById('new-passage-btn');
-const uploadNewBtn         = document.getElementById('upload-new-btn');
-const passageLengthSelect  = document.getElementById('passage-length');
-const passageControls      = document.getElementById('passage-controls');
-const fullScoreControls    = document.getElementById('full-score-controls');
-const toggleFullScoreBtn   = document.getElementById('toggle-full-score-btn');
-const prevPageBtn          = document.getElementById('prev-page-btn');
-const nextPageBtn          = document.getElementById('next-page-btn');
-const pageIndicator        = document.getElementById('page-indicator');
-const fullscreenBtn        = document.getElementById('fullscreen-btn');
-const scoreNavWrapper      = document.getElementById('score-nav-wrapper');
-const exitFullscreenBtn    = document.getElementById('exit-fullscreen-btn');
+const newPassageBtn = document.getElementById('new-passage-btn');
+const uploadNewBtn = document.getElementById('upload-new-btn');
+const passageLengthSelect = document.getElementById('passage-length');
+const passageControls = document.getElementById('passage-controls');
+const fullScoreControls = document.getElementById('full-score-controls');
+const toggleFullScoreBtn = document.getElementById('toggle-full-score-btn');
+const prevPageBtn = document.getElementById('prev-page-btn');
+const nextPageBtn = document.getElementById('next-page-btn');
+const pageIndicator = document.getElementById('page-indicator');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+const scoreNavWrapper = document.getElementById('score-nav-wrapper');
+const exitFullscreenBtn = document.getElementById('exit-fullscreen-btn');
 
 // ─── IndexedDB ────────────────────────────────────────────────────────────────
 const DB_NAME = 'SpotPracticeDB';
@@ -51,7 +51,7 @@ function openDB() {
       }
     };
     request.onsuccess = () => resolve(request.result);
-    request.onerror  = () => reject(request.error);
+    request.onerror = () => reject(request.error);
   });
 }
 
@@ -72,7 +72,7 @@ async function getSavedFileFromStorage() {
     return new Promise((resolve) => {
       const req = tx.objectStore(STORE_NAME).get('current');
       req.onsuccess = () => resolve(req.result);
-      req.onerror  = () => resolve(null);
+      req.onerror = () => resolve(null);
     });
   } catch (err) {
     console.error('Failed to read from IndexedDB:', err);
@@ -304,11 +304,11 @@ function showCurrentPage() {
   const svgClone = osmdFullSVGs[currentPageIndex].cloneNode(true);
 
   // Make it responsive: fill width, auto height, bounded by container
-  svgClone.setAttribute('width',  '100%');
+  svgClone.setAttribute('width', '100%');
   svgClone.setAttribute('height', 'auto');
-  svgClone.style.width    = '100%';
-  svgClone.style.height   = 'auto';
-  svgClone.style.display  = 'block';
+  svgClone.style.width = '100%';
+  svgClone.style.height = 'auto';
+  svgClone.style.display = 'block';
   svgClone.style.maxWidth = '100%';
 
   // Replace container contents with just this SVG
@@ -316,13 +316,13 @@ function showCurrentPage() {
   musicContainerFull.appendChild(svgClone);
 
   // Reset any inline sizing we applied previously
-  musicContainerFull.style.width    = '';
-  musicContainerFull.style.height   = '';
+  musicContainerFull.style.width = '';
+  musicContainerFull.style.height = '';
   musicContainerFull.style.overflow = 'visible';
   musicContainerFull.style.position = '';
 
   pageIndicator.textContent = `${currentPageIndex + 1} / ${totalPages}`;
-  statusBar.textContent     = `Full Score – page ${currentPageIndex + 1} of ${totalPages}`;
+  statusBar.textContent = `Full Score – page ${currentPageIndex + 1} of ${totalPages}`;
   viewerCanvas.style.opacity = '1';
 }
 
@@ -331,12 +331,13 @@ function enterFullScoreUI() {
   document.querySelector('.setting-group').classList.add('hidden');
   passageControls.classList.add('hidden');
   fullScoreControls.classList.remove('hidden');
-  toggleFullScoreBtn.innerHTML = '<span class="material-symbols-outlined">casino</span> Back to Passages';
+  toggleFullScoreBtn.innerHTML = '<span class="material-symbols-outlined">casino</span>Spot Practice';
   prevPageBtn.classList.remove('hidden');
   nextPageBtn.classList.remove('hidden');
   viewerCanvas.classList.add('full-score-view');
   musicContainer.classList.add('hidden');
   musicContainerFull.classList.remove('hidden');
+  fullscreenBtn.classList.remove('hidden');
 }
 
 function exitFullScoreUI() {
@@ -349,6 +350,7 @@ function exitFullScoreUI() {
   viewerCanvas.classList.remove('full-score-view');
   musicContainerFull.classList.add('hidden');
   musicContainer.classList.remove('hidden');
+  fullscreenBtn.classList.add('hidden');
 }
 
 // ─── Event Listeners ──────────────────────────────────────────────────────────
@@ -434,20 +436,26 @@ exitFullscreenBtn.addEventListener('click', () => {
 document.addEventListener('fullscreenchange', () => {
   const icon = document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen';
   fullscreenBtn.innerHTML = `<span class="material-symbols-outlined">${icon}</span>`;
+
+  // Re-scale the SVG to fit the new fullscreen dimensions (give the browser a tick to layout)
+  setTimeout(() => {
+    if (isFullScoreMode) showCurrentPage();
+  }, 50);
 });
 
 // Keyboard navigation
 window.addEventListener('keydown', (e) => {
   if (!isFullScoreMode || viewerSection.classList.contains('hidden')) return;
-  if (e.key === 'ArrowLeft')  prevPageBtn.click();
+  if (e.key === 'ArrowLeft') prevPageBtn.click();
   if (e.key === 'ArrowRight') nextPageBtn.click();
 });
 
 // Resize: re-render current view
 window.addEventListener('resize', () => {
   if (viewerSection.classList.contains('hidden')) return;
-  if (isFullScoreMode && osmdFull) {
-    osmdFull.render();
+
+  // Re-scale the score to fit the new window size
+  if (isFullScoreMode) {
     showCurrentPage();
   } else if (osmdPassage) {
     osmdPassage.render();
