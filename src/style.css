@@ -1,0 +1,367 @@
+:root {
+  --md-sys-color-primary: #006a6a;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #6ff5f5;
+  --md-sys-color-on-primary-container: #002020;
+  --md-sys-color-secondary: #4a6363;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #cce8e8;
+  --md-sys-color-on-secondary-container: #051f1f;
+  --md-sys-color-tertiary: #4b6078;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #d3e4ff;
+  --md-sys-color-on-tertiary-container: #041c31;
+  --md-sys-color-error: #ba1a1a;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-error-container: #ffdad6;
+  --md-sys-color-on-error-container: #410002;
+  --md-sys-color-outline: #6f7979;
+  --md-sys-color-background: #fafdfd;
+  --md-sys-color-on-background: #191c1c;
+  --md-sys-color-surface: #fafdfd;
+  --md-sys-color-on-surface: #191c1c;
+  --md-sys-color-surface-variant: #dae5e4;
+  --md-sys-color-on-surface-variant: #3f4948;
+  --md-sys-color-inverse-surface: #2d3131;
+  --md-sys-color-inverse-on-surface: #f4eff4;
+  
+  --md-sys-typescale-h1-font: 'Outfit', sans-serif;
+  --md-sys-typescale-h1-size: 3.5rem;
+  --md-sys-typescale-body-font: 'Inter', sans-serif;
+  
+  --elevation-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
+  --elevation-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
+  --elevation-3: 0px 1px 3px 0px rgba(0, 0, 0, 0.3), 0px 4px 8px 3px rgba(0, 0, 0, 0.15);
+  
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --md-sys-color-primary: #4edada;
+    --md-sys-color-on-primary: #003737;
+    --md-sys-color-primary-container: #004f4f;
+    --md-sys-color-on-primary-container: #6ff5f5;
+    --md-sys-color-secondary: #b1cccc;
+    --md-sys-color-on-secondary: #1c3535;
+    --md-sys-color-secondary-container: #334b4b;
+    --md-sys-color-on-secondary-container: #cce8e8;
+    --md-sys-color-tertiary: #b3c8e8;
+    --md-sys-color-on-tertiary: #1c314b;
+    --md-sys-color-tertiary-container: #334861;
+    --md-sys-color-on-tertiary-container: #d3e4ff;
+    --md-sys-color-background: #191c1c;
+    --md-sys-color-on-background: #e0e3e3;
+    --md-sys-color-surface: #191c1c;
+    --md-sys-color-on-surface: #e0e3e3;
+    --md-sys-color-surface-variant: #3f4948;
+    --md-sys-color-on-surface-variant: #bec9c8;
+    --md-sys-color-outline: #889392;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--md-sys-typescale-body-font);
+  background-color: var(--md-sys-color-background);
+  color: var(--md-sys-color-on-background);
+  line-height: 1.5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+h1 {
+  font-family: var(--md-sys-typescale-h1-font);
+  font-size: var(--md-sys-typescale-h1-size);
+  color: var(--md-sys-color-primary);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.upload-card {
+  background: var(--md-sys-color-surface-variant);
+  border-radius: 28px;
+  padding: 3rem;
+  text-align: center;
+  border: 2px dashed var(--md-sys-color-outline);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.upload-card:hover, .upload-card.drag-over {
+  background: var(--md-sys-color-primary-container);
+  border-color: var(--md-sys-color-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--elevation-2);
+}
+
+.upload-card .icon {
+  font-size: 48px;
+  color: var(--md-sys-color-primary);
+  margin-bottom: 1rem;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#viewer-canvas {
+  display: flex;
+  gap: 2rem;
+  width: 100%;
+  transition: opacity 0.5s ease;
+  min-height: 300px;
+  position: relative;
+}
+
+.music-container {
+  background: #f4ecd8; /* Classic Sepia background */
+  border-radius: 28px;
+  padding: 1.5rem;
+  box-shadow: var(--elevation-1);
+  flex: 1;
+  width: 100%;
+  border: 1px solid #d4c8a8;
+}
+
+#viewer-canvas.double-page .music-container {
+  width: calc(50% - 1rem);
+}
+
+/* Ensure OSMD SVG is responsive and stays black on sepia */
+.music-container svg {
+  width: 100% !important;
+  height: auto !important;
+}
+
+/* Force black notes on sepia background regardless of theme */
+.music-container svg path, 
+.music-container svg text,
+.music-container svg rect,
+.music-container svg line {
+  fill: #000000 !important;
+  stroke: #000000 !important;
+}
+
+.controls-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 1.5rem;
+  background: var(--md-sys-color-surface-variant);
+  border-radius: 24px;
+  margin-top: 2rem;
+  box-shadow: var(--elevation-1);
+}
+
+.setting-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.setting-group select {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--md-sys-color-outline);
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  cursor: pointer;
+  outline: none;
+}
+
+.setting-group select:focus {
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 2px var(--md-sys-color-primary-container);
+}
+
+button {
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 100px;
+  font-family: var(--md-sys-typescale-body-font);
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 40px;
+}
+
+/* Filled Button */
+button.filled {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  box-shadow: var(--elevation-1);
+}
+
+button.filled:hover {
+  box-shadow: var(--elevation-2);
+  filter: brightness(1.1);
+}
+
+/* Tonal Button */
+button.tonal {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+button.tonal:hover {
+  filter: brightness(0.95);
+  box-shadow: var(--elevation-1);
+}
+
+/* Outlined Button */
+button.outlined {
+  background: transparent;
+  color: var(--md-sys-color-primary);
+  border: 1px solid var(--md-sys-color-outline);
+}
+
+button.outlined:hover {
+  background: rgba(103, 80, 164, 0.08);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+.status-bar {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--md-sys-color-on-surface-variant);
+  margin-top: 1rem;
+}
+
+.divider {
+  width: 1px;
+  height: 32px;
+  background-color: var(--md-sys-color-outline);
+  opacity: 0.3;
+  margin: 0 0.5rem;
+}
+
+.mode-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+#page-indicator {
+  font-size: 0.875rem;
+  font-weight: 500;
+  min-width: 60px;
+  text-align: center;
+}
+
+#layout-mode {
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--md-sys-color-outline);
+  background: var(--md-sys-color-surface);
+  font-size: 0.75rem;
+}
+
+/* Two-page layout logic */
+.double-page #music-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: center;
+}
+
+.double-page #music-container > div {
+  flex: 1;
+  min-width: 45%;
+}
+
+/* We force the systems to flow side-by-side if they are small enough, 
+   but OSMD usually renders one system per SVG. 
+   For a true side-by-side, we can use CSS columns on the container of the SVGs. */
+.double-page #music-container {
+  column-count: 2;
+  column-gap: 2rem;
+  display: block; /* Override flex if using columns */
+}
+
+.double-page #music-container svg {
+  break-inside: avoid;
+  margin-bottom: 1rem;
+}
+
+/* Loading Spinner */
+.loader {
+  width: 48px;
+  height: 48px;
+  border: 5px solid var(--md-sys-color-primary-container);
+  border-bottom-color: var(--md-sys-color-primary);
+  border-radius: 50%;
+  display: inline-block;
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: -24px 0 0 -24px;
+}
+
+@keyframes rotation {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.splash-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 4rem;
+  text-align: center;
+  color: var(--md-sys-color-primary);
+  font-weight: 500;
+}
+
+.splash-container .loader {
+  position: static;
+  margin: 0;
+}
