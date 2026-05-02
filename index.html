@@ -78,10 +78,19 @@
       </div>
 
       <div id="viewer-section" class="hidden fade-in">
-        <div id="viewer-canvas">
-          <div id="music-container-left" class="music-container"></div>
-          <div id="music-container-right" class="music-container hidden"></div>
-          <div id="loader" class="loader hidden"></div>
+        <div class="score-navigation-wrapper">
+          <button id="prev-page-btn" class="nav-side-btn hidden" title="Previous Page (Left Arrow)">
+            <span class="material-symbols-outlined">chevron_left</span>
+          </button>
+
+          <div id="viewer-canvas">
+            <div id="music-container" class="music-container"></div>
+            <div id="loader" class="loader hidden"></div>
+          </div>
+
+          <button id="next-page-btn" class="nav-side-btn hidden" title="Next Page (Right Arrow)">
+            <span class="material-symbols-outlined">chevron_right</span>
+          </button>
         </div>
 
         <div class="status-bar" id="status-bar">
@@ -107,17 +116,7 @@
           </div>
 
           <div id="full-score-controls" class="mode-controls hidden">
-            <button id="prev-page-btn" class="tonal">
-              <span class="material-symbols-outlined">navigate_before</span>
-            </button>
             <span id="page-indicator">1 / 10</span>
-            <button id="next-page-btn" class="tonal">
-              <span class="material-symbols-outlined">navigate_next</span>
-            </button>
-            <select id="layout-mode">
-              <option value="single">Single Page</option>
-              <option value="double">Two Pages</option>
-            </select>
           </div>
 
           <div class="divider"></div>

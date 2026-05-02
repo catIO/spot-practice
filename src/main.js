@@ -2,8 +2,7 @@ import './style.css'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 
 // State management
-let osmdLeft = null;
-let osmdRight = null;
+let osmd = null;
 let totalMeasures = 0;
 let currentFile = null;
 let passageLength = 4; // Default number of bars to show
@@ -18,8 +17,7 @@ let layoutMode = 'single';
 const uploadSection = document.getElementById('upload-section');
 const viewerSection = document.getElementById('viewer-section');
 const viewerCanvas = document.getElementById('viewer-canvas');
-const musicContainerLeft = document.getElementById('music-container-left');
-const musicContainerRight = document.getElementById('music-container-right');
+const musicContainer = document.getElementById('music-container');
 const fileInput = document.getElementById('file-input');
 const statusBar = document.getElementById('status-bar');
 const loader = document.getElementById('loader');
@@ -95,8 +93,7 @@ function initOSMD() {
     defaultColorMusic: '#000000'
   };
 
-  osmdLeft = new OpenSheetMusicDisplay(musicContainerLeft, commonOptions);
-  osmdRight = new OpenSheetMusicDisplay(musicContainerRight, commonOptions);
+  osmd = new OpenSheetMusicDisplay(musicContainer, commonOptions);
 }
 
 // Shuffle utility (Fisher-Yates)
@@ -178,16 +175,12 @@ async function handleFile(file) {
 
 async function loadMusicData(name, content) {
   try {
-    if (!osmdLeft) initOSMD();
+    if (!osmd) initOSMD();
     showLoader(true);
     
-    // Load into both instances
-    await Promise.all([
-      osmdLeft.load(content),
-      osmdRight.load(content)
-    ]);
+    await osmd.load(content);
     
-    totalMeasures = osmdLeft.Sheet.SourceMeasures.length;
+    totalMeasures = osmd.Sheet.SourceMeasures.length;
     
     uploadSection.classList.add('hidden');
     viewerSection.classList.remove('hidden');
@@ -203,23 +196,19 @@ async function loadMusicData(name, content) {
 }
 
 function showRandomPassage() {
-  if (!osmdLeft || totalMeasures === 0) return;
+  if (!osmd || totalMeasures === 0) return;
 
   if (isFullScoreMode) {
     renderFullScoreView();
     return;
   }
 
-  // Passage Mode
-  musicContainerRight.classList.add('hidden');
-  viewerCanvas.classList.remove('double-page');
-
   if (availableStarts.length === 0) {
     resetAvailableStarts();
   }
 
   const startMeasure = availableStarts.pop();
-  renderRange(osmdLeft, startMeasure, passageLength);
+  renderRange(osmd, startMeasure, passageLength);
   
   statusBar.textContent = `Random Passage: Measures ${startMeasure} - ${Math.min(totalMeasures, startMeasure + passageLength - 1)} of ${totalMeasures}`;
 }
@@ -228,33 +217,13 @@ function renderFullScoreView() {
   const baseChunk = parseInt(passageLengthSelect.value) || 4;
   const chunk = baseChunk * 4; 
 
-  if (layoutMode === 'double') {
-    musicContainerRight.classList.remove('hidden');
-    viewerCanvas.classList.add('double-page');
-    
-    renderRange(osmdLeft, currentStartMeasure, chunk);
-    
-    const rightStart = currentStartMeasure + chunk;
-    if (rightStart <= totalMeasures) {
-      renderRange(osmdRight, rightStart, chunk);
-      const endMeasure = Math.min(totalMeasures, rightStart + chunk - 1);
-      statusBar.textContent = `Full Score: Measures ${currentStartMeasure} - ${endMeasure} of ${totalMeasures}`;
-    } else {
-      musicContainerRight.classList.add('hidden'); // Hide if nothing to show on right
-      statusBar.textContent = `Full Score: Measures ${currentStartMeasure} - ${totalMeasures}`;
-    }
-  } else {
-    musicContainerRight.classList.add('hidden');
-    viewerCanvas.classList.remove('double-page');
-    renderRange(osmdLeft, currentStartMeasure, chunk);
-    const endMeasure = Math.min(totalMeasures, currentStartMeasure + chunk - 1);
-    statusBar.textContent = `Full Score: Measures ${currentStartMeasure} - ${endMeasure} of ${totalMeasures}`;
-  }
+  renderRange(osmd, currentStartMeasure, chunk);
+  const endMeasure = Math.min(totalMeasures, currentStartMeasure + chunk - 1);
+  statusBar.textContent = `Full Score: Measures ${currentStartMeasure} - ${endMeasure} of ${totalMeasures}`;
   
   // Page indicator
-  const effectiveChunk = layoutMode === 'double' ? chunk * 2 : chunk;
-  const totalPages = Math.ceil(totalMeasures / effectiveChunk);
-  const currentPage = Math.ceil(currentStartMeasure / effectiveChunk);
+  const totalPages = Math.ceil(totalMeasures / chunk);
+  const currentPage = Math.ceil(currentStartMeasure / chunk);
   pageIndicator.textContent = `${currentPage} / ${totalPages}`;
 }
 
@@ -321,11 +290,15 @@ toggleFullScoreBtn.addEventListener('click', () => {
     passageControls.classList.add('hidden');
     fullScoreControls.classList.remove('hidden');
     toggleFullScoreBtn.innerHTML = '<span class="material-symbols-outlined">casino</span> Back to Passages';
+    prevPageBtn.classList.remove('hidden');
+    nextPageBtn.classList.remove('hidden');
     currentStartMeasure = 1;
   } else {
     passageControls.classList.remove('hidden');
     fullScoreControls.classList.add('hidden');
     toggleFullScoreBtn.innerHTML = '<span class="material-symbols-outlined">menu_book</span> View Full Score';
+    prevPageBtn.classList.add('hidden');
+    nextPageBtn.classList.add('hidden');
     resetAvailableStarts();
   }
   
@@ -333,33 +306,34 @@ toggleFullScoreBtn.addEventListener('click', () => {
 });
 
 prevPageBtn.addEventListener('click', () => {
-  const chunk = parseInt(passageLengthSelect.value) || 4;
-  const effectiveChunk = layoutMode === 'double' ? chunk * 2 : chunk;
-  currentStartMeasure = Math.max(1, currentStartMeasure - effectiveChunk);
+  const chunk = (parseInt(passageLengthSelect.value) || 4) * 4;
+  currentStartMeasure = Math.max(1, currentStartMeasure - chunk);
   showRandomPassage();
 });
 
 nextPageBtn.addEventListener('click', () => {
-  const chunk = parseInt(passageLengthSelect.value) || 4;
-  const effectiveChunk = layoutMode === 'double' ? chunk * 2 : chunk;
-  if (currentStartMeasure + effectiveChunk <= totalMeasures) {
-    currentStartMeasure += effectiveChunk;
+  const chunk = (parseInt(passageLengthSelect.value) || 4) * 4;
+  if (currentStartMeasure + chunk <= totalMeasures) {
+    currentStartMeasure += chunk;
     showRandomPassage();
   }
 });
 
-layoutModeSelect.addEventListener('change', (e) => {
-  layoutMode = e.target.value;
-  showRandomPassage();
-});
-
 // Responsive handling
 window.addEventListener('resize', () => {
-  if (osmdLeft && viewerSection.classList.contains('hidden') === false) {
-    osmdLeft.render();
-    if (layoutMode === 'double' && !musicContainerRight.classList.contains('hidden')) {
-      osmdRight.render();
-    }
+  if (osmd && viewerSection.classList.contains('hidden') === false) {
+    osmd.render();
+  }
+});
+
+// Keyboard Navigation
+window.addEventListener('keydown', (e) => {
+  if (!isFullScoreMode || viewerSection.classList.contains('hidden')) return;
+  
+  if (e.key === 'ArrowLeft') {
+    prevPageBtn.click();
+  } else if (e.key === 'ArrowRight') {
+    nextPageBtn.click();
   }
 });
 
