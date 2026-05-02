@@ -5,7 +5,8 @@ import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 let osmdPassage = null;   // OSMD instance for Passage Mode (Endless)
 let osmdFull = null;      // OSMD instance for Full Score Mode (A4_P)
 let totalMeasures = 0;
-let passageLength = 4;
+const PREF_PASSAGE_LENGTH = 'spot_passage_length';
+let passageLength = parseInt(localStorage.getItem(PREF_PASSAGE_LENGTH) || '2', 10);
 let availableStarts = [];
 
 let isFullScoreMode = false;
@@ -362,7 +363,17 @@ uploadNewBtn.addEventListener('click', () => {
   fileInput.value = '';
 });
 
+// Restore saved preference into the dropdown
+(function () {
+  const saved = localStorage.getItem(PREF_PASSAGE_LENGTH);
+  if (saved && passageLengthSelect.querySelector(`option[value="${saved}"]`)) {
+    passageLengthSelect.value = saved;
+  }
+})();
+
 passageLengthSelect.addEventListener('change', () => {
+  passageLength = parseInt(passageLengthSelect.value, 10);
+  localStorage.setItem(PREF_PASSAGE_LENGTH, String(passageLength));
   resetAvailableStarts();
   showRandomPassage();
 });
