@@ -78,13 +78,17 @@
       </div>
 
       <div id="viewer-section" class="hidden fade-in">
-        <div class="score-navigation-wrapper">
+        <div id="score-nav-wrapper" class="score-navigation-wrapper">
+          <button id="exit-fullscreen-btn" class="floating-exit-btn" title="Exit Fullscreen">
+            <span class="material-symbols-outlined">close_fullscreen</span>
+          </button>
           <button id="prev-page-btn" class="nav-side-btn hidden" title="Previous Page (Left Arrow)">
             <span class="material-symbols-outlined">chevron_left</span>
           </button>
 
           <div id="viewer-canvas">
             <div id="music-container" class="music-container"></div>
+            <div id="music-container-full" class="music-container music-container-full hidden"></div>
             <div id="loader" class="loader hidden"></div>
           </div>
 
@@ -117,6 +121,9 @@
 
           <div id="full-score-controls" class="mode-controls hidden">
             <span id="page-indicator">1 / 10</span>
+            <button id="fullscreen-btn" class="tonal" title="Toggle Fullscreen">
+              <span class="material-symbols-outlined">fullscreen</span>
+            </button>
           </div>
 
           <div class="divider"></div>

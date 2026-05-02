@@ -129,11 +129,44 @@ h1 {
 
 .score-navigation-wrapper {
   display: flex;
-  align-items: center;
+  align-items: stretch; /* Changed from center to allow canvas to fill height */
   justify-content: space-between;
   gap: 1rem;
   width: 100%;
   position: relative;
+  flex: 1; /* Take full height of parent */
+}
+
+#score-nav-wrapper:fullscreen {
+  background-color: #f4ecd8; /* Match the score's sepia background */
+  padding: 0; /* Remove padding to maximize height */
+}
+
+.floating-exit-btn {
+  display: none;
+}
+
+#score-nav-wrapper:fullscreen .floating-exit-btn {
+  display: flex;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-primary);
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transition: transform 0.2s ease;
+}
+
+#score-nav-wrapper:fullscreen .floating-exit-btn:hover {
+  transform: scale(1.1);
 }
 
 .nav-side-btn {
@@ -151,6 +184,7 @@ h1 {
   flex-shrink: 0;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   z-index: 10;
+  align-self: center; /* Keep buttons centered even when wrapper stretches */
 }
 
 .nav-side-btn:hover {
@@ -172,13 +206,90 @@ h1 {
 }
 
 .music-container {
-  background: #f4ecd8; /* Classic Sepia background */
+  background: #f4ecd8;
   border-radius: 28px;
   padding: 1.5rem;
   box-shadow: var(--elevation-1);
   flex: 1;
   width: 100%;
   border: 1px solid #d4c8a8;
+  overflow-y: auto;
+  max-height: calc(100vh - 120px);
+}
+
+/* Full Score container: hidden by default, swapped in via JS */
+.music-container-full {
+  background: #f4ecd8;
+  border: 1px solid #d4c8a8;
+  border-radius: 28px;
+  flex: 1;
+  width: 100%;
+  overflow: visible; /* OSMD uses absolute positioning; don't clip the page content */
+  position: relative;
+}
+
+/* In full-score-view mode expand the full score container */
+#viewer-canvas.full-score-view .music-container-full {
+  max-height: calc(100vh - 80px);
+  border-radius: 0;
+  border: none;
+  background: #f4ecd8;
+}
+
+/* Each OSMD page wrapper div */
+.music-container-full > div {
+  width: 100%;
+}
+
+/* The injected SVG fills the container, capped at screen height */
+.music-container-full svg {
+  width: 100% !important;
+  height: auto !important;
+  display: block !important;
+  max-height: calc(100vh - 150px); /* never taller than the viewport */
+  object-fit: contain;
+}
+
+/* Full Score Mode: No scrolling, fit to screen */
+#viewer-canvas.full-score-view .music-container {
+  overflow-y: hidden;
+  display: flex; /* Flex is safe again since SVG is native size */
+  align-items: center;
+  justify-content: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Hide OSMD wrapper divs by default, override their hardcoded inline styles */
+#viewer-canvas.full-score-view .music-container > div {
+  display: none !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100%;
+  position: relative !important;
+}
+
+#viewer-canvas.full-score-view .music-container > div.active-page {
+  display: flex !important; /* Show active page, center SVG inside */
+  align-items: center;
+  justify-content: center;
+}
+
+/* Apply object-fit scaling directly to the SVG inside the active wrapper */
+#viewer-canvas.full-score-view .music-container > div.active-page svg {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100%;
+  object-fit: contain; /* Scale physical page to fit screen perfectly */
+  margin: 0 auto;
+}
+
+#score-nav-wrapper:fullscreen .music-container {
+  max-height: 100vh; /* Maximize space in fullscreen */
+  border-radius: 0; /* Optional: Make it feel more edge-to-edge */
+  border: none;
+  box-shadow: none; /* Blend seamlessly with the full-screen sepia background */
+  padding: 0.5rem; /* Minimal padding so notes go closer to edges */
 }
 
 /* Ensure OSMD SVG is responsive and stays black on sepia */

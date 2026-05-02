@@ -1,39 +1,43 @@
 import './style.css'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 
-// State management
-let osmd = null;
+// ─── State ────────────────────────────────────────────────────────────────────
+let osmdPassage = null;   // OSMD instance for Passage Mode (Endless)
+let osmdFull = null;      // OSMD instance for Full Score Mode (A4_P)
 let totalMeasures = 0;
-let currentFile = null;
-let passageLength = 4; // Default number of bars to show
-let availableStarts = []; // Pool for exhaustion logic
+let passageLength = 4;
+let availableStarts = [];
 
-// Full Score State
 let isFullScoreMode = false;
 let currentStartMeasure = 1;
-let layoutMode = 'single';
+let currentPageIndex = 0;
+let totalPages = 1;
+let osmdFullSVGs = []; // Extracted per-page SVGs from OSMD
 
-// DOM Elements
-const uploadSection = document.getElementById('upload-section');
-const viewerSection = document.getElementById('viewer-section');
-const viewerCanvas = document.getElementById('viewer-canvas');
-const musicContainer = document.getElementById('music-container');
-const fileInput = document.getElementById('file-input');
-const statusBar = document.getElementById('status-bar');
-const loader = document.getElementById('loader');
+// ─── DOM ──────────────────────────────────────────────────────────────────────
+const uploadSection        = document.getElementById('upload-section');
+const viewerSection        = document.getElementById('viewer-section');
+const viewerCanvas         = document.getElementById('viewer-canvas');
+const musicContainer       = document.getElementById('music-container');
+const musicContainerFull   = document.getElementById('music-container-full');
+const fileInput            = document.getElementById('file-input');
+const statusBar            = document.getElementById('status-bar');
+const loader               = document.getElementById('loader');
 
-const newPassageBtn = document.getElementById('new-passage-btn');
-const uploadNewBtn = document.getElementById('upload-new-btn');
-const passageLengthSelect = document.getElementById('passage-length');
-const passageControls = document.getElementById('passage-controls');
-const fullScoreControls = document.getElementById('full-score-controls');
-const toggleFullScoreBtn = document.getElementById('toggle-full-score-btn');
-const prevPageBtn = document.getElementById('prev-page-btn');
-const nextPageBtn = document.getElementById('next-page-btn');
-const pageIndicator = document.getElementById('page-indicator');
-const layoutModeSelect = document.getElementById('layout-mode');
+const newPassageBtn        = document.getElementById('new-passage-btn');
+const uploadNewBtn         = document.getElementById('upload-new-btn');
+const passageLengthSelect  = document.getElementById('passage-length');
+const passageControls      = document.getElementById('passage-controls');
+const fullScoreControls    = document.getElementById('full-score-controls');
+const toggleFullScoreBtn   = document.getElementById('toggle-full-score-btn');
+const prevPageBtn          = document.getElementById('prev-page-btn');
+const nextPageBtn          = document.getElementById('next-page-btn');
+const pageIndicator        = document.getElementById('page-indicator');
+const fullscreenBtn        = document.getElementById('fullscreen-btn');
+const scoreNavWrapper      = document.getElementById('score-nav-wrapper');
+const exitFullscreenBtn    = document.getElementById('exit-fullscreen-btn');
 
-// IndexedDB Persistence Helpers
+// ─── IndexedDB ────────────────────────────────────────────────────────────────
 const DB_NAME = 'SpotPracticeDB';
 const STORE_NAME = 'lastFile';
 
@@ -46,7 +50,7 @@ function openDB() {
       }
     };
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onerror  = () => reject(request.error);
   });
 }
 
@@ -67,7 +71,7 @@ async function getSavedFileFromStorage() {
     return new Promise((resolve) => {
       const req = tx.objectStore(STORE_NAME).get('current');
       req.onsuccess = () => resolve(req.result);
-      req.onerror = () => resolve(null);
+      req.onerror  = () => resolve(null);
     });
   } catch (err) {
     console.error('Failed to read from IndexedDB:', err);
@@ -75,10 +79,10 @@ async function getSavedFileFromStorage() {
   }
 }
 
-// Initialize OSMD
+// ─── OSMD Initialisation ──────────────────────────────────────────────────────
 function initOSMD() {
-  const commonOptions = {
-    autoResize: true,
+  const sharedOptions = {
+    autoResize: false,          // We handle sizing ourselves
     drawTitle: false,
     drawSubtitle: false,
     drawComposer: false,
@@ -88,15 +92,27 @@ function initOSMD() {
     drawPartAbbreviations: false,
     drawFingerings: true,
     drawMeasureNumbers: true,
-    renderSingleHorizontalStaffline: false,
-    drawingParameters: 'compact',
-    defaultColorMusic: '#000000'
+    defaultColorMusic: '#000000',
   };
 
-  osmd = new OpenSheetMusicDisplay(musicContainer, commonOptions);
+  // Passage instance – endless scroll, dynamic slicing
+  osmdPassage = new OpenSheetMusicDisplay(musicContainer, {
+    ...sharedOptions,
+    pageFormat: 'Endless',
+    drawingParameters: 'compact',
+  });
+
+  // Full Score instance – respects physical page layout from XML
+  osmdFull = new OpenSheetMusicDisplay(musicContainerFull, {
+    ...sharedOptions,
+    pageFormat: 'A4_P',
+    drawTitle: true,
+    drawSubtitle: true,
+    drawComposer: true,
+  });
 }
 
-// Shuffle utility (Fisher-Yates)
+// ─── Utilities ────────────────────────────────────────────────────────────────
 function shuffle(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -105,41 +121,40 @@ function shuffle(array) {
   return array;
 }
 
-// Initialize/Reset the pool of available start points
 function resetAvailableStarts() {
   if (totalMeasures === 0) return;
-  
   passageLength = parseInt(passageLengthSelect.value) || 4;
   const maxStart = Math.max(1, totalMeasures - passageLength + 1);
-  
   availableStarts = [];
-  for (let i = 1; i <= maxStart; i++) {
-    availableStarts.push(i);
-  }
-  
+  for (let i = 1; i <= maxStart; i++) availableStarts.push(i);
   shuffle(availableStarts);
-  console.log(`Pool reset: ${availableStarts.length} possible starting points.`);
 }
 
-// File handling
+function showLoader(show) {
+  if (show) {
+    loader.classList.remove('hidden');
+    viewerCanvas.style.opacity = '0.5';
+  } else {
+    loader.classList.add('hidden');
+    viewerCanvas.style.opacity = '1';
+  }
+}
+
+// ─── File Handling ────────────────────────────────────────────────────────────
 uploadSection.addEventListener('click', () => fileInput.click());
 
 uploadSection.addEventListener('dragover', (e) => {
   e.preventDefault();
   uploadSection.classList.add('drag-over');
 });
-
 uploadSection.addEventListener('dragleave', () => {
   uploadSection.classList.remove('drag-over');
 });
-
 uploadSection.addEventListener('drop', (e) => {
   e.preventDefault();
   uploadSection.classList.remove('drag-over');
-  const files = e.dataTransfer.files;
-  if (files.length > 0) handleFile(files[0]);
+  if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
 });
-
 fileInput.addEventListener('change', (e) => {
   if (e.target.files.length > 0) handleFile(e.target.files[0]);
 });
@@ -149,43 +164,44 @@ async function handleFile(file) {
     alert('Please upload a MusicXML or MXL file.');
     return;
   }
-
-  currentFile = file;
   showLoader(true);
-  
-  try {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const content = e.target.result;
-      await loadMusicData(file.name, content);
-      // Save for persistence
-      saveFileToStorage(file.name, content);
-    };
-    
-    if (file.name.endsWith('.mxl')) {
-      reader.readAsArrayBuffer(file);
-    } else {
-      reader.readAsText(file);
-    }
-  } catch (err) {
-    console.error('File Read Error:', err);
-    showLoader(false);
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const content = e.target.result;
+    await loadMusicData(file.name, content);
+    saveFileToStorage(file.name, content);
+  };
+  if (file.name.endsWith('.mxl')) {
+    reader.readAsArrayBuffer(file);
+  } else {
+    reader.readAsText(file);
   }
 }
 
 async function loadMusicData(name, content) {
   try {
-    if (!osmd) initOSMD();
+    if (!osmdPassage) initOSMD();
     showLoader(true);
-    
-    await osmd.load(content);
-    
-    totalMeasures = osmd.Sheet.SourceMeasures.length;
-    
+
+    // Load into both instances in parallel
+    await Promise.all([
+      osmdPassage.load(content),
+      osmdFull.load(content),
+    ]);
+
+    totalMeasures = osmdPassage.Sheet.SourceMeasures.length;
+
     uploadSection.classList.add('hidden');
     viewerSection.classList.remove('hidden');
-    
+
     resetAvailableStarts();
+
+    // Reset to passage mode on new file load
+    if (isFullScoreMode) {
+      isFullScoreMode = false;
+      exitFullScoreUI();
+    }
+
     showRandomPassage();
   } catch (err) {
     console.error('OSMD Load Error:', err);
@@ -195,77 +211,148 @@ async function loadMusicData(name, content) {
   }
 }
 
+// ─── Passage Mode ─────────────────────────────────────────────────────────────
 function showRandomPassage() {
-  if (!osmd || totalMeasures === 0) return;
+  if (!osmdPassage || totalMeasures === 0) return;
 
-  if (isFullScoreMode) {
-    renderFullScoreView();
-    return;
-  }
+  // Make sure the right container is visible
+  musicContainer.classList.remove('hidden');
+  musicContainerFull.classList.add('hidden');
+  viewerCanvas.classList.remove('full-score-view');
 
-  if (availableStarts.length === 0) {
-    resetAvailableStarts();
-  }
+  if (availableStarts.length === 0) resetAvailableStarts();
 
   const startMeasure = availableStarts.pop();
-  renderRange(osmd, startMeasure, passageLength);
-  
-  statusBar.textContent = `Random Passage: Measures ${startMeasure} - ${Math.min(totalMeasures, startMeasure + passageLength - 1)} of ${totalMeasures}`;
+  renderPassage(startMeasure, passageLength);
+  statusBar.textContent = `Passage: measures ${startMeasure}–${Math.min(totalMeasures, startMeasure + passageLength - 1)} of ${totalMeasures}`;
 }
 
-function renderFullScoreView() {
-  const baseChunk = parseInt(passageLengthSelect.value) || 4;
-  const chunk = baseChunk * 4; 
-
-  renderRange(osmd, currentStartMeasure, chunk);
-  const endMeasure = Math.min(totalMeasures, currentStartMeasure + chunk - 1);
-  statusBar.textContent = `Full Score: Measures ${currentStartMeasure} - ${endMeasure} of ${totalMeasures}`;
-  
-  // Page indicator
-  const totalPages = Math.ceil(totalMeasures / chunk);
-  const currentPage = Math.ceil(currentStartMeasure / chunk);
-  pageIndicator.textContent = `${currentPage} / ${totalPages}`;
-}
-
-function renderRange(instance, startMeasure, length) {
+function renderPassage(startMeasure, length) {
   const endMeasure = Math.min(totalMeasures, startMeasure + length - 1);
-  
-  instance.setOptions({
+
+  osmdPassage.setOptions({
     drawFromMeasureNumber: startMeasure,
-    drawUpToMeasureNumber: endMeasure
+    drawUpToMeasureNumber: endMeasure,
   });
-  
-  instance.EngravingRules.drawFromMeasureNumber = startMeasure;
-  instance.EngravingRules.drawUpToMeasureNumber = endMeasure;
-  
-  if (isFullScoreMode) {
-    instance.EngravingRules.RenderXMeasuresPerLineAkaSystem = 0; // Natural wrapping
-    instance.EngravingRules.MinMeasureWidth = 15;
-  } else {
-    instance.EngravingRules.RenderXMeasuresPerLineAkaSystem = length;
-    instance.EngravingRules.MinMeasureWidth = 20;
-  }
-  
-  instance.EngravingRules.EvenlySpaceMeasures = true;
-  instance.EngravingRules.StretchLastSystemLine = true;
-  
-  instance.render();
-  viewerCanvas.style.opacity = 1;
+  osmdPassage.EngravingRules.drawFromMeasureNumber = startMeasure;
+  osmdPassage.EngravingRules.drawUpToMeasureNumber = endMeasure;
+  osmdPassage.EngravingRules.RenderXMeasuresPerLineAkaSystem = length;
+  osmdPassage.EngravingRules.MinMeasureWidth = 20;
+  osmdPassage.EngravingRules.EvenlySpaceMeasures = true;
+  osmdPassage.EngravingRules.StretchLastSystemLine = true;
+  osmdPassage.Zoom = 1.0;
+  osmdPassage.render();
+  viewerCanvas.style.opacity = '1';
 }
 
-function showLoader(show) {
-  if (show) {
-    loader.classList.remove('hidden');
-    viewerCanvas.style.opacity = 0.5;
-  } else {
-    loader.classList.add('hidden');
-    viewerCanvas.style.opacity = 1;
+// ─── Full Score Mode ──────────────────────────────────────────────────────────
+async function renderFullScore() {
+  if (!osmdFull || totalMeasures === 0) return;
+  showLoader(true);
+
+  try {
+    // Ignore printed-paper system/page breaks — they don't translate to screen.
+    // OSMD auto-distributes measures based on note density and available width.
+    osmdFull.EngravingRules.NewSystemAtXMLNewSystemAttribute = false;
+    osmdFull.EngravingRules.NewPageAtXMLNewPageAttribute = false;
+    osmdFull.EngravingRules.RenderXMeasuresPerLineAkaSystem = 0; // auto
+
+    // Wait for browser to paint the now-visible container before rendering.
+    // Without this, OSMD measures 0px width and produces blank output.
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    // Extra tick for browsers that need two frames to fully lay out flex children
+    await new Promise(resolve => requestAnimationFrame(resolve));
+
+    console.log('Container width before render:', musicContainerFull.clientWidth);
+    osmdFull.render();
+
+    // Extract SVGs from OSMD wrapper divs so we can show them independently.
+    // OSMD uses absolute positioning inside 0×0 wrappers, which causes overflow
+    // clipping issues. Extracting the SVG gives us full control over sizing.
+    osmdFullSVGs = [];
+    Array.from(musicContainerFull.children).forEach(div => {
+      const svg = div.querySelector('svg');
+      if (svg) {
+        // Ensure viewBox is set so the SVG scales correctly
+        const w = svg.getAttribute('width');
+        const h = svg.getAttribute('height');
+        if (w && h && !svg.getAttribute('viewBox')) {
+          svg.setAttribute('viewBox', `0 0 ${parseFloat(w)} ${parseFloat(h)}`);
+        }
+        osmdFullSVGs.push(svg.cloneNode(true));
+      }
+    });
+
+    console.log(`Extracted ${osmdFullSVGs.length} page SVGs`);
+    totalPages = osmdFullSVGs.length || 1;
+    currentPageIndex = 0;
+    showCurrentPage();
+  } catch (err) {
+    console.error('Full Score render error:', err);
+  } finally {
+    showLoader(false);
   }
 }
 
-// Control Actions
+function showCurrentPage() {
+  if (!osmdFullSVGs.length) return;
+
+  totalPages = osmdFullSVGs.length;
+
+  // Clone the active page SVG and inject it directly into the container
+  const svgClone = osmdFullSVGs[currentPageIndex].cloneNode(true);
+
+  // Make it responsive: fill width, auto height, bounded by container
+  svgClone.setAttribute('width',  '100%');
+  svgClone.setAttribute('height', 'auto');
+  svgClone.style.width    = '100%';
+  svgClone.style.height   = 'auto';
+  svgClone.style.display  = 'block';
+  svgClone.style.maxWidth = '100%';
+
+  // Replace container contents with just this SVG
+  musicContainerFull.innerHTML = '';
+  musicContainerFull.appendChild(svgClone);
+
+  // Reset any inline sizing we applied previously
+  musicContainerFull.style.width    = '';
+  musicContainerFull.style.height   = '';
+  musicContainerFull.style.overflow = 'visible';
+  musicContainerFull.style.position = '';
+
+  pageIndicator.textContent = `${currentPageIndex + 1} / ${totalPages}`;
+  statusBar.textContent     = `Full Score – page ${currentPageIndex + 1} of ${totalPages}`;
+  viewerCanvas.style.opacity = '1';
+}
+
+// ─── Mode Toggle UI helpers ───────────────────────────────────────────────────
+function enterFullScoreUI() {
+  document.querySelector('.setting-group').classList.add('hidden');
+  passageControls.classList.add('hidden');
+  fullScoreControls.classList.remove('hidden');
+  toggleFullScoreBtn.innerHTML = '<span class="material-symbols-outlined">casino</span> Back to Passages';
+  prevPageBtn.classList.remove('hidden');
+  nextPageBtn.classList.remove('hidden');
+  viewerCanvas.classList.add('full-score-view');
+  musicContainer.classList.add('hidden');
+  musicContainerFull.classList.remove('hidden');
+}
+
+function exitFullScoreUI() {
+  document.querySelector('.setting-group').classList.remove('hidden');
+  passageControls.classList.remove('hidden');
+  fullScoreControls.classList.add('hidden');
+  toggleFullScoreBtn.innerHTML = '<span class="material-symbols-outlined">menu_book</span> View Full Score';
+  prevPageBtn.classList.add('hidden');
+  nextPageBtn.classList.add('hidden');
+  viewerCanvas.classList.remove('full-score-view');
+  musicContainerFull.classList.add('hidden');
+  musicContainer.classList.remove('hidden');
+}
+
+// ─── Event Listeners ──────────────────────────────────────────────────────────
 newPassageBtn.addEventListener('click', () => {
-  viewerCanvas.style.opacity = 0;
+  viewerCanvas.style.opacity = '0';
   setTimeout(() => showRandomPassage(), 300);
 });
 
@@ -277,74 +364,91 @@ uploadNewBtn.addEventListener('click', () => {
 
 passageLengthSelect.addEventListener('change', () => {
   resetAvailableStarts();
-  if (isFullScoreMode) {
-    currentStartMeasure = 1; // Reset to beginning if paging changes
-  }
   showRandomPassage();
 });
 
-toggleFullScoreBtn.addEventListener('click', () => {
+toggleFullScoreBtn.addEventListener('click', async () => {
   isFullScoreMode = !isFullScoreMode;
-  
+
   if (isFullScoreMode) {
-    passageControls.classList.add('hidden');
-    fullScoreControls.classList.remove('hidden');
-    toggleFullScoreBtn.innerHTML = '<span class="material-symbols-outlined">casino</span> Back to Passages';
-    prevPageBtn.classList.remove('hidden');
-    nextPageBtn.classList.remove('hidden');
-    currentStartMeasure = 1;
+    enterFullScoreUI();
+    await renderFullScore();
   } else {
-    passageControls.classList.remove('hidden');
-    fullScoreControls.classList.add('hidden');
-    toggleFullScoreBtn.innerHTML = '<span class="material-symbols-outlined">menu_book</span> View Full Score';
-    prevPageBtn.classList.add('hidden');
-    nextPageBtn.classList.add('hidden');
-    resetAvailableStarts();
-  }
-  
-  showRandomPassage();
-});
-
-prevPageBtn.addEventListener('click', () => {
-  const chunk = (parseInt(passageLengthSelect.value) || 4) * 4;
-  currentStartMeasure = Math.max(1, currentStartMeasure - chunk);
-  showRandomPassage();
-});
-
-nextPageBtn.addEventListener('click', () => {
-  const chunk = (parseInt(passageLengthSelect.value) || 4) * 4;
-  if (currentStartMeasure + chunk <= totalMeasures) {
-    currentStartMeasure += chunk;
+    exitFullScoreUI();
     showRandomPassage();
   }
 });
 
-// Responsive handling
-window.addEventListener('resize', () => {
-  if (osmd && viewerSection.classList.contains('hidden') === false) {
-    osmd.render();
+prevPageBtn.addEventListener('click', () => {
+  if (isFullScoreMode) {
+    if (currentPageIndex > 0) {
+      currentPageIndex--;
+      showCurrentPage();
+    }
+  } else {
+    currentStartMeasure = Math.max(1, currentStartMeasure - passageLength);
+    showRandomPassage();
   }
 });
 
-// Keyboard Navigation
+nextPageBtn.addEventListener('click', () => {
+  if (isFullScoreMode) {
+    if (currentPageIndex < totalPages - 1) {
+      currentPageIndex++;
+      showCurrentPage();
+    }
+  } else {
+    if (currentStartMeasure + passageLength <= totalMeasures) {
+      currentStartMeasure += passageLength;
+      showRandomPassage();
+    }
+  }
+});
+
+// Fullscreen
+fullscreenBtn.addEventListener('click', () => {
+  if (!document.fullscreenElement) {
+    scoreNavWrapper.requestFullscreen().catch(err =>
+      console.error(`Fullscreen error: ${err.message}`)
+    );
+  } else {
+    document.exitFullscreen();
+  }
+});
+
+exitFullscreenBtn.addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+});
+
+document.addEventListener('fullscreenchange', () => {
+  const icon = document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen';
+  fullscreenBtn.innerHTML = `<span class="material-symbols-outlined">${icon}</span>`;
+});
+
+// Keyboard navigation
 window.addEventListener('keydown', (e) => {
   if (!isFullScoreMode || viewerSection.classList.contains('hidden')) return;
-  
-  if (e.key === 'ArrowLeft') {
-    prevPageBtn.click();
-  } else if (e.key === 'ArrowRight') {
-    nextPageBtn.click();
+  if (e.key === 'ArrowLeft')  prevPageBtn.click();
+  if (e.key === 'ArrowRight') nextPageBtn.click();
+});
+
+// Resize: re-render current view
+window.addEventListener('resize', () => {
+  if (viewerSection.classList.contains('hidden')) return;
+  if (isFullScoreMode && osmdFull) {
+    osmdFull.render();
+    showCurrentPage();
+  } else if (osmdPassage) {
+    osmdPassage.render();
   }
 });
 
-// Startup: Check for saved file
+// ─── Startup ──────────────────────────────────────────────────────────────────
 async function initApp() {
   const splash = document.getElementById('splash-loader');
-  
   try {
     const saved = await getSavedFileFromStorage();
     if (saved && saved.content) {
-      console.log(`Restoring last file: ${saved.name}`);
       await loadMusicData(saved.name, saved.content);
     } else {
       uploadSection.classList.remove('hidden');
