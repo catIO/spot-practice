@@ -29,11 +29,9 @@ const newPassageBtn = document.getElementById('new-passage-btn');
 const uploadNewBtn = document.getElementById('upload-new-btn');
 const passageLengthSelect = document.getElementById('passage-length');
 const passageControls = document.getElementById('passage-controls');
-const fullScoreControls = document.getElementById('full-score-controls');
 const toggleFullScoreBtn = document.getElementById('toggle-full-score-btn');
 const prevPageBtn = document.getElementById('prev-page-btn');
 const nextPageBtn = document.getElementById('next-page-btn');
-const pageIndicator = document.getElementById('page-indicator');
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 const scoreNavWrapper = document.getElementById('score-nav-wrapper');
 const exitFullscreenBtn = document.getElementById('exit-fullscreen-btn');
@@ -321,7 +319,6 @@ function showCurrentPage() {
   musicContainerFull.style.overflow = 'visible';
   musicContainerFull.style.position = '';
 
-  pageIndicator.textContent = `${currentPageIndex + 1} / ${totalPages}`;
   statusBar.textContent = `Full Score – page ${currentPageIndex + 1} of ${totalPages}`;
   viewerCanvas.style.opacity = '1';
 }
@@ -330,7 +327,6 @@ function showCurrentPage() {
 function enterFullScoreUI() {
   document.querySelector('.setting-group').classList.add('hidden');
   passageControls.classList.add('hidden');
-  fullScoreControls.classList.remove('hidden');
   toggleFullScoreBtn.innerHTML = '<span class="material-symbols-outlined">casino</span>Spot Practice';
   prevPageBtn.classList.remove('hidden');
   nextPageBtn.classList.remove('hidden');
@@ -343,7 +339,6 @@ function enterFullScoreUI() {
 function exitFullScoreUI() {
   document.querySelector('.setting-group').classList.remove('hidden');
   passageControls.classList.remove('hidden');
-  fullScoreControls.classList.add('hidden');
   toggleFullScoreBtn.innerHTML = '<span class="material-symbols-outlined">menu_book</span> View Full Score';
   prevPageBtn.classList.add('hidden');
   nextPageBtn.classList.add('hidden');
