@@ -177,11 +177,13 @@ async function handleFile(file) {
   const reader = new FileReader();
   reader.onload = async (e) => {
     const content = e.target.result;
-    await loadMusicData(file.name, content);
-    saveFileToStorage(file.name, content);
+    const success = await loadMusicData(file.name, content);
+    if (success) {
+      saveFileToStorage(file.name, content);
+    }
   };
   if (file.name.endsWith('.mxl')) {
-    reader.readAsArrayBuffer(file);
+    reader.readAsBinaryString(file);
   } else {
     reader.readAsText(file);
   }
@@ -212,9 +214,13 @@ async function loadMusicData(name, content) {
     }
 
     showRandomPassage();
+    return true;
   } catch (err) {
     console.error('OSMD Load Error:', err);
     alert('Error parsing MusicXML data.');
+    uploadSection.classList.remove('hidden');
+    viewerSection.classList.add('hidden');
+    return false;
   } finally {
     showLoader(false);
   }
@@ -508,7 +514,10 @@ async function initApp() {
   try {
     const saved = await getSavedFileFromStorage();
     if (saved && saved.content) {
-      await loadMusicData(saved.name, saved.content);
+      const success = await loadMusicData(saved.name, saved.content);
+      if (!success) {
+        uploadSection.classList.remove('hidden');
+      }
     } else {
       uploadSection.classList.remove('hidden');
     }
