@@ -6,7 +6,10 @@ let osmdPassage = null;   // OSMD instance for Passage Mode (Endless)
 let osmdFull = null;      // OSMD instance for Full Score Mode (A4_P)
 let totalMeasures = 0;
 const PREF_PASSAGE_LENGTH = 'spot_passage_length';
+const PREF_ZOOM = 'spot_current_zoom';
+const PREF_SHOW_MEASURES = 'spot_show_measures';
 let passageLength = parseInt(localStorage.getItem(PREF_PASSAGE_LENGTH) || '2', 10);
+let drawMeasures = localStorage.getItem(PREF_SHOW_MEASURES) !== 'false'; // Default to true
 let availableStarts = [];
 
 let isFullScoreMode = false;
@@ -42,8 +45,10 @@ const zoomInBtn = document.getElementById('zoom-in-btn');
 const zoomDisplay = document.getElementById('zoom-display');
 const fullscreenToolbarBtn = document.getElementById('fullscreen-toolbar-btn');
 const fsIcon = document.getElementById('fs-icon');
+const toggleMeasuresBtn = document.getElementById('toggle-measures-btn');
+const measuresIcon = document.getElementById('measures-icon');
 
-let currentZoom = 1.0;
+let currentZoom = parseFloat(localStorage.getItem(PREF_ZOOM) || '1.0');
 let baseScale = 1.0;
 
 // ─── IndexedDB ────────────────────────────────────────────────────────────────
@@ -100,8 +105,12 @@ function initOSMD() {
     drawPartNames: false,
     drawPartAbbreviations: false,
     drawFingerings: true,
-    drawMeasureNumbers: true,
+    drawMeasureNumbers: drawMeasures,
+    drawMeasureNumbersOnlyAtSystemStart: false,
     defaultColorMusic: '#000000',
+    coloringEnabled: true,
+    coloringMode: 0, // 0 = XML
+    colorStemsLikeNoteheads: true,
   };
 
   // Passage instance – endless scroll, dynamic slicing
@@ -119,6 +128,9 @@ function initOSMD() {
     drawSubtitle: true,
     drawComposer: true,
   });
+
+  osmdPassage.EngravingRules.MeasureNumberInterval = 1;
+  osmdFull.EngravingRules.MeasureNumberInterval = 1;
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -244,18 +256,44 @@ function showRandomPassage() {
 function renderPassage(startMeasure, length) {
   const endMeasure = Math.min(totalMeasures, startMeasure + length - 1);
 
+  // Determine how many measures per line makes sense
+  let measuresPerLine = length;
+  if (length >= 8) measuresPerLine = 4; // Break long passages into 4-bar systems
+
   osmdPassage.setOptions({
     drawFromMeasureNumber: startMeasure,
     drawUpToMeasureNumber: endMeasure,
+    drawMeasureNumbers: drawMeasures,
+    drawMeasureNumbersOnlyAtSystemStart: false,
+    measureNumberInterval: 1
   });
-  osmdPassage.EngravingRules.drawFromMeasureNumber = startMeasure;
-  osmdPassage.EngravingRules.drawUpToMeasureNumber = endMeasure;
-  osmdPassage.EngravingRules.RenderXMeasuresPerLineAkaSystem = length;
-  osmdPassage.EngravingRules.MinMeasureWidth = 20;
+
+  osmdPassage.EngravingRules.NewSystemAtXMLNewSystemAttribute = false;
+  osmdPassage.EngravingRules.NewPageAtXMLNewPageAttribute = false;
+  osmdPassage.EngravingRules.RenderXMeasuresPerLineAkaSystem = measuresPerLine;
+  osmdPassage.EngravingRules.ColoringEnabled = true;
+  osmdPassage.EngravingRules.ColoringMode = 0;
+  osmdPassage.EngravingRules.MeasureNumberInterval = 1;
   osmdPassage.EngravingRules.EvenlySpaceMeasures = true;
   osmdPassage.EngravingRules.StretchLastSystemLine = true;
-  osmdPassage.Zoom = currentZoom * 0.8; // Calibrated so 100% UI matches old 80% size
+  
+  // Temporarily force the container to be very wide so OSMD never auto-wraps due to space
+  const originalWidth = musicContainer.style.width;
+  musicContainer.style.width = '4000px';
+
+  osmdPassage.Zoom = currentZoom;
   osmdPassage.render();
+
+  // Restore container width
+  musicContainer.style.width = originalWidth;
+
+  // Make the resulting SVG responsive so it scales down to fit the screen
+  const svg = musicContainer.querySelector('svg');
+  if (svg) {
+    svg.style.width = '100%';
+    svg.style.height = 'auto';
+  }
+
   viewerCanvas.style.opacity = '1';
 }
 
@@ -265,6 +303,7 @@ function updateZoomDisplay() {
 
 function applyZoom() {
   updateZoomDisplay();
+  localStorage.setItem(PREF_ZOOM, currentZoom.toString());
   if (isFullScoreMode) {
     const svg = musicContainerFull.querySelector('svg');
     if (svg) {
@@ -416,6 +455,16 @@ uploadNewBtn.addEventListener('click', () => {
   if (saved && passageLengthSelect.querySelector(`option[value="${saved}"]`)) {
     passageLengthSelect.value = saved;
   }
+  updateZoomDisplay();
+  
+  // Set initial state for measures toggle
+  if (drawMeasures) {
+    toggleMeasuresBtn.classList.add('active');
+    toggleMeasuresBtn.title = 'Measure Numbers: On';
+  } else {
+    toggleMeasuresBtn.classList.remove('active');
+    toggleMeasuresBtn.title = 'Measure Numbers: Off';
+  }
 })();
 
 passageLengthSelect.addEventListener('change', () => {
@@ -434,6 +483,44 @@ toggleModeBtn.addEventListener('click', async () => {
   } else {
     exitFullScoreUI();
     showRandomPassage();
+  }
+});
+
+toggleMeasuresBtn.addEventListener('click', () => {
+  drawMeasures = !drawMeasures;
+  localStorage.setItem(PREF_SHOW_MEASURES, String(drawMeasures));
+  
+  // Update UI state
+  toggleMeasuresBtn.classList.toggle('active', drawMeasures);
+  toggleMeasuresBtn.title = `Measure Numbers: ${drawMeasures ? 'On' : 'Off'}`;
+  
+  // Apply to both instances
+  if (osmdPassage) {
+    osmdPassage.setOptions({ 
+      drawMeasureNumbers: drawMeasures,
+      drawMeasureNumbersOnlyAtSystemStart: false,
+      measureNumberInterval: 1
+    });
+  }
+  if (osmdFull) {
+    osmdFull.setOptions({ 
+      drawMeasureNumbers: drawMeasures,
+      drawMeasureNumbersOnlyAtSystemStart: false,
+      measureNumberInterval: 1
+    });
+  }
+  
+  // Re-render current view
+  if (isFullScoreMode) {
+    showCurrentPage();
+  } else {
+    osmdPassage.render();
+    // After render, we need to re-apply the responsive SVG fix
+    const svg = musicContainer.querySelector('svg');
+    if (svg) {
+      svg.style.width = '100%';
+      svg.style.height = 'auto';
+    }
   }
 });
 
@@ -472,6 +559,7 @@ fullscreenToolbarBtn.addEventListener('click', () => {
 document.addEventListener('fullscreenchange', () => {
   const isFs = !!document.fullscreenElement;
   fsIcon.textContent = isFs ? 'fullscreen_exit' : 'fullscreen';
+  fullscreenToolbarBtn.classList.toggle('active', isFs);
 
   // Re-scale the SVG to fit the new fullscreen dimensions (give the browser a tick to layout)
   setTimeout(() => {

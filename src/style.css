@@ -174,6 +174,15 @@ h1 {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
+.icon-btn.active {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #8ab4f8; /* Material-style blue highlight */
+}
+
+.icon-btn.active .material-symbols-outlined {
+  font-variation-settings: 'FILL' 1;
+}
+
 .icon-btn:active {
   transform: scale(0.95);
 }
@@ -370,17 +379,8 @@ h1 {
   height: auto !important;
 }
 
-/* Force black notes on sepia background regardless of theme */
-.music-container svg path, 
-.music-container svg text,
-.music-container svg rect,
-.music-container svg line {
-  fill: #000000 !important;
-  stroke: #000000 !important;
-}
-
-/* Two-page layout logic */
-.double-page #music-container {
+/* Each OSMD page wrapper div */
+.music-container-full > div {
   display: flex;
   flex-wrap: wrap;
   gap: 2rem;
