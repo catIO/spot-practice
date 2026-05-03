@@ -22,19 +22,29 @@ const viewerCanvas = document.getElementById('viewer-canvas');
 const musicContainer = document.getElementById('music-container');
 const musicContainerFull = document.getElementById('music-container-full');
 const fileInput = document.getElementById('file-input');
-const statusBar = document.getElementById('status-bar');
 const loader = document.getElementById('loader');
 
 const newPassageBtn = document.getElementById('new-passage-btn');
 const uploadNewBtn = document.getElementById('upload-new-btn');
 const passageLengthSelect = document.getElementById('passage-length');
-const passageControls = document.getElementById('passage-controls');
-const toggleFullScoreBtn = document.getElementById('toggle-full-score-btn');
-const prevPageBtn = document.getElementById('prev-page-btn');
-const nextPageBtn = document.getElementById('next-page-btn');
-const fullscreenBtn = document.getElementById('fullscreen-btn');
 const scoreNavWrapper = document.getElementById('score-nav-wrapper');
-const exitFullscreenBtn = document.getElementById('exit-fullscreen-btn');
+
+// Toolbar Elements
+const toggleModeBtn = document.getElementById('toggle-mode-btn');
+const modeIcon = document.getElementById('mode-icon');
+const modeLabel = document.getElementById('mode-label');
+const navSectionSpot = document.getElementById('nav-section-spot');
+const navSectionFull = document.getElementById('nav-section-full');
+const pageInput = document.getElementById('page-input');
+const totalPagesDisplay = document.getElementById('total-pages-display');
+const zoomOutBtn = document.getElementById('zoom-out-btn');
+const zoomInBtn = document.getElementById('zoom-in-btn');
+const zoomDisplay = document.getElementById('zoom-display');
+const fullscreenToolbarBtn = document.getElementById('fullscreen-toolbar-btn');
+const fsIcon = document.getElementById('fs-icon');
+
+let currentZoom = 1.0;
+let baseScale = 1.0;
 
 // ─── IndexedDB ────────────────────────────────────────────────────────────────
 const DB_NAME = 'SpotPracticeDB';
@@ -223,7 +233,6 @@ function showRandomPassage() {
 
   const startMeasure = availableStarts.pop();
   renderPassage(startMeasure, passageLength);
-  statusBar.textContent = `Passage: measures ${startMeasure}–${Math.min(totalMeasures, startMeasure + passageLength - 1)} of ${totalMeasures}`;
 }
 
 function renderPassage(startMeasure, length) {
@@ -239,9 +248,38 @@ function renderPassage(startMeasure, length) {
   osmdPassage.EngravingRules.MinMeasureWidth = 20;
   osmdPassage.EngravingRules.EvenlySpaceMeasures = true;
   osmdPassage.EngravingRules.StretchLastSystemLine = true;
-  osmdPassage.Zoom = 1.0;
+  osmdPassage.Zoom = currentZoom * 0.8; // Calibrated so 100% UI matches old 80% size
   osmdPassage.render();
   viewerCanvas.style.opacity = '1';
+}
+
+function updateZoomDisplay() {
+  zoomDisplay.textContent = `${Math.round(currentZoom * 100)}%`;
+}
+
+function applyZoom() {
+  updateZoomDisplay();
+  if (isFullScoreMode) {
+    const svg = musicContainerFull.querySelector('svg');
+    if (svg) {
+      const viewBox = svg.getAttribute('viewBox') || '0 0 800 1131';
+      const parts = viewBox.split(' ');
+      const nativeWidth = parseFloat(parts[2] || 800);
+      const nativeHeight = parseFloat(parts[3] || 1131);
+
+      const actualScale = baseScale * currentZoom;
+
+      svg.style.width = `${nativeWidth * actualScale}px`;
+      svg.style.height = `${nativeHeight * actualScale}px`;
+      svg.style.maxWidth = 'none';
+      svg.style.maxHeight = 'none';
+    }
+  } else {
+    if (osmdPassage) {
+      osmdPassage.Zoom = currentZoom * 0.8;
+      osmdPassage.render();
+    }
+  }
 }
 
 // ─── Full Score Mode ──────────────────────────────────────────────────────────
@@ -301,51 +339,57 @@ function showCurrentPage() {
   // Clone the active page SVG and inject it directly into the container
   const svgClone = osmdFullSVGs[currentPageIndex].cloneNode(true);
 
-  // Make it responsive: fill width, auto height, bounded by container
-  svgClone.setAttribute('width', '100%');
-  svgClone.setAttribute('height', 'auto');
-  svgClone.style.width = '100%';
-  svgClone.style.height = 'auto';
-  svgClone.style.display = 'block';
-  svgClone.style.maxWidth = '100%';
-
   // Replace container contents with just this SVG
   musicContainerFull.innerHTML = '';
   musicContainerFull.appendChild(svgClone);
 
-  // Reset any inline sizing we applied previously
-  musicContainerFull.style.width = '';
-  musicContainerFull.style.height = '';
-  musicContainerFull.style.overflow = 'visible';
-  musicContainerFull.style.position = '';
+  // Calculate base scale so that 100% zoom perfectly fits the screen
+  const isFs = !!document.fullscreenElement;
+  const availableHeight = isFs ? window.innerHeight - 80 : window.innerHeight - 150;
+  const availableWidth = musicContainerFull.clientWidth || window.innerWidth - 64;
 
-  statusBar.textContent = `Full Score – page ${currentPageIndex + 1} of ${totalPages}`;
+  const viewBox = svgClone.getAttribute('viewBox') || '0 0 800 1131';
+  const parts = viewBox.split(' ');
+  const nativeWidth = parseFloat(parts[2] || 800);
+  const nativeHeight = parseFloat(parts[3] || 1131);
+
+  const scaleFitHeight = availableHeight / nativeHeight;
+  const scaleFitWidth = availableWidth / nativeWidth;
+  baseScale = Math.min(scaleFitHeight, scaleFitWidth);
+
+  // Prepare SVG for explicit pixel sizing
+  svgClone.style.display = 'block';
+  svgClone.style.margin = '0 auto';
+  svgClone.style.overflow = 'visible';
+
+  pageInput.value = currentPageIndex + 1;
+  totalPagesDisplay.textContent = totalPages;
   viewerCanvas.style.opacity = '1';
+  
+  applyZoom();
 }
 
 // ─── Mode Toggle UI helpers ───────────────────────────────────────────────────
 function enterFullScoreUI() {
-  document.querySelector('.setting-group').classList.add('hidden');
-  passageControls.classList.add('hidden');
-  toggleFullScoreBtn.innerHTML = '<span class="material-symbols-outlined">casino</span>Spot Practice';
-  prevPageBtn.classList.remove('hidden');
-  nextPageBtn.classList.remove('hidden');
+  navSectionSpot.classList.add('hidden');
+  navSectionFull.classList.remove('hidden');
+  modeIcon.textContent = 'casino'; // switch to spot practice icon
+  if (modeLabel) modeLabel.textContent = 'Spot Practice';
+  toggleModeBtn.title = 'Switch to Spot Practice';
   viewerCanvas.classList.add('full-score-view');
   musicContainer.classList.add('hidden');
   musicContainerFull.classList.remove('hidden');
-  fullscreenBtn.classList.remove('hidden');
 }
 
 function exitFullScoreUI() {
-  document.querySelector('.setting-group').classList.remove('hidden');
-  passageControls.classList.remove('hidden');
-  toggleFullScoreBtn.innerHTML = '<span class="material-symbols-outlined">menu_book</span> View Full Score';
-  prevPageBtn.classList.add('hidden');
-  nextPageBtn.classList.add('hidden');
+  navSectionSpot.classList.remove('hidden');
+  navSectionFull.classList.add('hidden');
+  modeIcon.textContent = 'menu_book'; // switch to full score icon
+  if (modeLabel) modeLabel.textContent = 'Full Score';
+  toggleModeBtn.title = 'Switch to Full Score';
   viewerCanvas.classList.remove('full-score-view');
   musicContainerFull.classList.add('hidden');
   musicContainer.classList.remove('hidden');
-  fullscreenBtn.classList.add('hidden');
 }
 
 // ─── Event Listeners ──────────────────────────────────────────────────────────
@@ -375,7 +419,7 @@ passageLengthSelect.addEventListener('change', () => {
   showRandomPassage();
 });
 
-toggleFullScoreBtn.addEventListener('click', async () => {
+toggleModeBtn.addEventListener('click', async () => {
   isFullScoreMode = !isFullScoreMode;
 
   if (isFullScoreMode) {
@@ -387,36 +431,31 @@ toggleFullScoreBtn.addEventListener('click', async () => {
   }
 });
 
-prevPageBtn.addEventListener('click', () => {
-  if (isFullScoreMode) {
-    if (currentPageIndex > 0) {
-      currentPageIndex--;
-      showCurrentPage();
-    }
-  } else {
-    currentStartMeasure = Math.max(1, currentStartMeasure - passageLength);
-    showRandomPassage();
-  }
+pageInput.addEventListener('change', () => {
+  if (!isFullScoreMode) return;
+  let p = parseInt(pageInput.value, 10);
+  if (isNaN(p)) p = 1;
+  if (p < 1) p = 1;
+  if (p > totalPages) p = totalPages;
+  pageInput.value = p;
+  currentPageIndex = p - 1;
+  showCurrentPage();
 });
 
-nextPageBtn.addEventListener('click', () => {
-  if (isFullScoreMode) {
-    if (currentPageIndex < totalPages - 1) {
-      currentPageIndex++;
-      showCurrentPage();
-    }
-  } else {
-    if (currentStartMeasure + passageLength <= totalMeasures) {
-      currentStartMeasure += passageLength;
-      showRandomPassage();
-    }
-  }
+zoomInBtn.addEventListener('click', () => {
+  currentZoom += 0.1;
+  applyZoom();
+});
+
+zoomOutBtn.addEventListener('click', () => {
+  currentZoom = Math.max(0.2, currentZoom - 0.1);
+  applyZoom();
 });
 
 // Fullscreen
-fullscreenBtn.addEventListener('click', () => {
+fullscreenToolbarBtn.addEventListener('click', () => {
   if (!document.fullscreenElement) {
-    scoreNavWrapper.requestFullscreen().catch(err =>
+    viewerSection.requestFullscreen().catch(err =>
       console.error(`Fullscreen error: ${err.message}`)
     );
   } else {
@@ -424,13 +463,9 @@ fullscreenBtn.addEventListener('click', () => {
   }
 });
 
-exitFullscreenBtn.addEventListener('click', () => {
-  if (document.fullscreenElement) document.exitFullscreen();
-});
-
 document.addEventListener('fullscreenchange', () => {
-  const icon = document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen';
-  fullscreenBtn.innerHTML = `<span class="material-symbols-outlined">${icon}</span>`;
+  const isFs = !!document.fullscreenElement;
+  fsIcon.textContent = isFs ? 'fullscreen_exit' : 'fullscreen';
 
   // Re-scale the SVG to fit the new fullscreen dimensions (give the browser a tick to layout)
   setTimeout(() => {
@@ -441,8 +476,18 @@ document.addEventListener('fullscreenchange', () => {
 // Keyboard navigation
 window.addEventListener('keydown', (e) => {
   if (!isFullScoreMode || viewerSection.classList.contains('hidden')) return;
-  if (e.key === 'ArrowLeft') prevPageBtn.click();
-  if (e.key === 'ArrowRight') nextPageBtn.click();
+  if (e.key === 'ArrowLeft') {
+    if (currentPageIndex > 0) {
+      currentPageIndex--;
+      showCurrentPage();
+    }
+  }
+  if (e.key === 'ArrowRight') {
+    if (currentPageIndex < totalPages - 1) {
+      currentPageIndex++;
+      showCurrentPage();
+    }
+  }
 });
 
 // Resize: re-render current view

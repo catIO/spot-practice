@@ -99,62 +99,70 @@
         <input type="file" id="file-input" class="hidden" accept=".musicxml,.xml,.mxl" />
       </div>
 
-      <div id="viewer-section" class="hidden fade-in">
-        <div id="score-nav-wrapper" class="score-navigation-wrapper">
-          <button id="exit-fullscreen-btn" class="floating-exit-btn" title="Exit Fullscreen">
-            <span class="material-symbols-outlined">close_fullscreen</span>
-          </button>
-          <button id="prev-page-btn" class="nav-side-btn hidden" title="Previous Page (Left Arrow)">
-            <span class="material-symbols-outlined">chevron_left</span>
-          </button>
+      <div id="viewer-section" class="hidden fade-in" style="display: flex; flex-direction: column; width: 100%; height: 100%;">
+        
+        <!-- Top Pill Toolbar -->
+        <div id="top-toolbar" class="top-toolbar">
+          <!-- Mode Switcher -->
+          <div class="toolbar-section">
+            <button id="toggle-mode-btn" class="toolbar-text-btn" title="Toggle Mode" style="background-color: rgba(255,255,255,0.1);">
+               <span class="material-symbols-outlined" id="mode-icon">menu_book</span>
+               <span id="mode-label">Full Score</span>
+            </button>
+          </div>
+          
+          <div class="toolbar-divider"></div>
 
+          <!-- Navigation Area: Spot Mode -->
+          <div class="toolbar-section" id="nav-section-spot">
+            <span class="toolbar-text">Bars</span>
+            <select id="passage-length" class="toolbar-select">
+              <option value="2" selected>2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="8">8</option>
+              <option value="16">16</option>
+            </select>
+            <button id="new-passage-btn" class="toolbar-text-btn">
+               <span class="material-symbols-outlined">shuffle</span> New Spot
+            </button>
+          </div>
+
+          <!-- Navigation Area: Full Score Mode -->
+          <div class="toolbar-section hidden" id="nav-section-full">
+            <span class="toolbar-text">Page</span>
+            <input type="number" id="page-input" class="toolbar-input" value="1" min="1" />
+            <span class="toolbar-text">/ <span id="total-pages-display">1</span></span>
+          </div>
+
+          <div class="toolbar-divider"></div>
+
+          <!-- Zoom Controls -->
+          <div class="toolbar-section">
+            <button id="zoom-out-btn" class="icon-btn"><span class="material-symbols-outlined">remove</span></button>
+            <span id="zoom-display" class="toolbar-text zoom-text">100%</span>
+            <button id="zoom-in-btn" class="icon-btn"><span class="material-symbols-outlined">add</span></button>
+          </div>
+
+          <div class="toolbar-divider"></div>
+
+          <!-- Fullscreen & Upload -->
+          <div class="toolbar-section">
+            <button id="fullscreen-toolbar-btn" class="icon-btn" title="Toggle Fullscreen">
+              <span class="material-symbols-outlined" id="fs-icon">fullscreen</span>
+            </button>
+            <button id="upload-new-btn" class="icon-btn" title="Upload New Score">
+              <span class="material-symbols-outlined">file_upload</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="score-nav-wrapper" class="score-navigation-wrapper">
           <div id="viewer-canvas">
             <div id="music-container" class="music-container"></div>
             <div id="music-container-full" class="music-container music-container-full hidden"></div>
             <div id="loader" class="loader hidden"></div>
-            <button id="fullscreen-btn" class="floating-fullscreen-btn hidden" title="Toggle Fullscreen">
-              <span class="material-symbols-outlined">fullscreen</span>
-            </button>
           </div>
-
-          <button id="next-page-btn" class="nav-side-btn hidden" title="Next Page (Right Arrow)">
-            <span class="material-symbols-outlined">chevron_right</span>
-          </button>
-        </div>
-
-        <div class="status-bar" id="status-bar">
-          No file loaded
-        </div>
-
-        <div class="controls-container">
-          <div class="setting-group">
-            <label for="passage-length">Passage Length:</label>
-            <select id="passage-length">
-              <option value="2" selected>2 Bars</option>
-              <option value="3">3 Bars</option>
-              <option value="4">4 Bars</option>
-              <option value="8">8 Bars</option>
-              <option value="16">16 Bars</option>
-            </select>
-          </div>
-
-          <div id="passage-controls" class="mode-controls">
-            <button id="new-passage-btn" class="filled">
-              <span class="material-symbols-outlined">shuffle</span>
-              New Spot
-            </button>
-          </div>
-
-
-
-
-          <button id="toggle-full-score-btn" class="outlined">
-            <span class="material-symbols-outlined">menu_book</span>
-            View Full Score
-          </button>
-          <button id="upload-new-btn" class="outlined" title="Upload New Score">
-            <span class="material-symbols-outlined">file_upload</span>
-          </button>
         </div>
       </div>
     </main>
