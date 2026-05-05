@@ -30,6 +30,7 @@ const loader = document.getElementById('loader');
 const newPassageBtn = document.getElementById('new-passage-btn');
 const uploadNewBtn = document.getElementById('upload-new-btn');
 const passageLengthSelect = document.getElementById('passage-length');
+const startMeasureSelect = document.getElementById('start-measure');
 const scoreNavWrapper = document.getElementById('score-nav-wrapper');
 
 // Toolbar Elements
@@ -147,6 +148,22 @@ function resetAvailableStarts() {
   passageLength = parseInt(passageLengthSelect.value) || 4;
   const maxStart = Math.max(1, totalMeasures - passageLength + 1);
   availableStarts = [];
+  
+  // Repopulate the dropdown if it exists
+  if (startMeasureSelect) {
+    const currentVal = startMeasureSelect.value;
+    startMeasureSelect.innerHTML = '<option value="random">Random</option>';
+    for (let i = 1; i <= totalMeasures; i++) {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = i;
+      startMeasureSelect.appendChild(opt);
+    }
+    if (currentVal && [...startMeasureSelect.options].some(o => o.value === currentVal)) {
+      startMeasureSelect.value = currentVal;
+    }
+  }
+
   for (let i = 1; i <= maxStart; i++) availableStarts.push(i);
   shuffle(availableStarts);
 }
@@ -217,6 +234,7 @@ async function loadMusicData(name, content) {
     uploadSection.classList.add('hidden');
     viewerSection.classList.remove('hidden');
 
+    if (startMeasureSelect) startMeasureSelect.value = 'random';
     resetAvailableStarts();
 
     // Reset to passage mode on new file load
@@ -247,9 +265,16 @@ function showRandomPassage() {
   musicContainerFull.classList.add('hidden');
   viewerCanvas.classList.remove('full-score-view');
 
-  if (availableStarts.length === 0) resetAvailableStarts();
+  let startMeasure;
+  const selected = startMeasureSelect.value;
+  
+  if (selected === 'random') {
+    if (availableStarts.length === 0) resetAvailableStarts();
+    startMeasure = availableStarts.pop();
+  } else {
+    startMeasure = parseInt(selected, 10);
+  }
 
-  const startMeasure = availableStarts.pop();
   renderPassage(startMeasure, passageLength);
 }
 
@@ -440,6 +465,7 @@ function exitFullScoreUI() {
 // ─── Event Listeners ──────────────────────────────────────────────────────────
 newPassageBtn.addEventListener('click', () => {
   viewerCanvas.style.opacity = '0';
+  if (startMeasureSelect) startMeasureSelect.value = 'random';
   setTimeout(() => showRandomPassage(), 300);
 });
 
@@ -471,6 +497,10 @@ passageLengthSelect.addEventListener('change', () => {
   passageLength = parseInt(passageLengthSelect.value, 10);
   localStorage.setItem(PREF_PASSAGE_LENGTH, String(passageLength));
   resetAvailableStarts();
+  showRandomPassage();
+});
+
+startMeasureSelect.addEventListener('change', () => {
   showRandomPassage();
 });
 
