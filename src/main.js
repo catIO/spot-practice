@@ -48,6 +48,8 @@ const fullscreenToolbarBtn = document.getElementById('fullscreen-toolbar-btn');
 const fsIcon = document.getElementById('fs-icon');
 const toggleMeasuresBtn = document.getElementById('toggle-measures-btn');
 const measuresIcon = document.getElementById('measures-icon');
+const prevPageBtn = document.getElementById('prev-page-btn');
+const nextPageBtn = document.getElementById('next-page-btn');
 
 let currentZoom = parseFloat(localStorage.getItem(PREF_ZOOM) || '1.0');
 let baseScale = 1.0;
@@ -328,7 +330,10 @@ function updateZoomDisplay() {
 
 function applyZoom() {
   updateZoomDisplay();
-  localStorage.setItem(PREF_ZOOM, currentZoom.toString());
+  if (!isFullScoreMode) {
+    localStorage.setItem(PREF_ZOOM, currentZoom.toString());
+  }
+  
   if (isFullScoreMode) {
     const svg = musicContainerFull.querySelector('svg');
     if (svg) {
@@ -346,8 +351,14 @@ function applyZoom() {
     }
   } else {
     if (osmdPassage) {
-      osmdPassage.Zoom = currentZoom * 0.8;
+      osmdPassage.Zoom = currentZoom;
       osmdPassage.render();
+      // After render, we need to re-apply the responsive SVG fix
+      const svg = musicContainer.querySelector('svg');
+      if (svg) {
+        svg.style.width = '100%';
+        svg.style.height = 'auto';
+      }
     }
   }
 }
@@ -358,11 +369,15 @@ async function renderFullScore() {
   showLoader(true);
 
   try {
-    // Ignore printed-paper system/page breaks — they don't translate to screen.
     // OSMD auto-distributes measures based on note density and available width.
     osmdFull.EngravingRules.NewSystemAtXMLNewSystemAttribute = false;
     osmdFull.EngravingRules.NewPageAtXMLNewPageAttribute = false;
-    osmdFull.EngravingRules.RenderXMeasuresPerLineAkaSystem = 0; // auto
+    
+    // Force a consistent number of measures and systems for an even look
+    osmdFull.EngravingRules.RenderXMeasuresPerLineAkaSystem = 4;
+    osmdFull.EngravingRules.MaxSystemsPerVerticalPage = 3;
+    osmdFull.EngravingRules.EvenlySpaceMeasures = true;
+    osmdFull.EngravingRules.StretchLastSystemLine = true;
 
     // Wait for browser to paint the now-visible container before rendering.
     // Without this, OSMD measures 0px width and produces blank output.
@@ -443,6 +458,8 @@ function showCurrentPage() {
 function enterFullScoreUI() {
   navSectionSpot.classList.add('hidden');
   navSectionFull.classList.remove('hidden');
+  prevPageBtn.classList.remove('hidden');
+  nextPageBtn.classList.remove('hidden');
   modeIcon.textContent = 'casino'; // switch to spot practice icon
   if (modeLabel) modeLabel.textContent = 'Spot Practice';
   toggleModeBtn.title = 'Switch to Spot Practice';
@@ -454,6 +471,8 @@ function enterFullScoreUI() {
 function exitFullScoreUI() {
   navSectionSpot.classList.remove('hidden');
   navSectionFull.classList.add('hidden');
+  prevPageBtn.classList.add('hidden');
+  nextPageBtn.classList.add('hidden');
   modeIcon.textContent = 'menu_book'; // switch to full score icon
   if (modeLabel) modeLabel.textContent = 'Full Score';
   toggleModeBtn.title = 'Switch to Full Score';
@@ -508,12 +527,15 @@ toggleModeBtn.addEventListener('click', async () => {
   isFullScoreMode = !isFullScoreMode;
 
   if (isFullScoreMode) {
+    currentZoom = 1.0;
     enterFullScoreUI();
     await renderFullScore();
   } else {
+    currentZoom = parseFloat(localStorage.getItem(PREF_ZOOM) || '1.0');
     exitFullScoreUI();
     showRandomPassage();
   }
+  updateZoomDisplay();
 });
 
 toggleMeasuresBtn.addEventListener('click', () => {
@@ -563,6 +585,20 @@ pageInput.addEventListener('change', () => {
   pageInput.value = p;
   currentPageIndex = p - 1;
   showCurrentPage();
+});
+
+prevPageBtn.addEventListener('click', () => {
+  if (currentPageIndex > 0) {
+    currentPageIndex--;
+    showCurrentPage();
+  }
+});
+
+nextPageBtn.addEventListener('click', () => {
+  if (currentPageIndex < totalPages - 1) {
+    currentPageIndex++;
+    showCurrentPage();
+  }
 });
 
 zoomInBtn.addEventListener('click', () => {

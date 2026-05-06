@@ -267,11 +267,43 @@ h1 {
 
 .score-navigation-wrapper {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
   width: 100%;
   position: relative;
   flex: 1;
+  gap: 1rem;
+}
+
+.nav-side-btn {
+  background-color: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  border: none;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--elevation-1);
+  flex-shrink: 0;
+}
+
+.nav-side-btn:hover {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  box-shadow: var(--elevation-2);
+  transform: scale(1.05);
+}
+
+.nav-side-btn:active {
+  transform: scale(0.95);
+}
+
+.nav-side-btn .material-symbols-outlined {
+  font-size: 32px;
 }
 
 #viewer-section:fullscreen {
