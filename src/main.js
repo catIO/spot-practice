@@ -8,12 +8,22 @@ let totalMeasures = 0;
 const PREF_PASSAGE_LENGTH = 'spot_passage_length';
 const PREF_ZOOM = 'spot_current_zoom';
 const PREF_SHOW_MEASURES = 'spot_show_measures';
+const PREF_CURRENT_SPOT = 'spot_current_spot';
+const PREF_UNPLAYED_SPOTS = 'spot_unplayed_spots';
+const PREF_SPOT_NUMBER = 'spot_current_number';
+const PREF_CYCLE_COUNT = 'spot_cycle_count';
+const PREF_SELECTED_START = 'spot_selected_start';
 let passageLength = parseInt(localStorage.getItem(PREF_PASSAGE_LENGTH) || '2', 10);
 let drawMeasures = localStorage.getItem(PREF_SHOW_MEASURES) !== 'false'; // Default to true
-let availableStarts = [];
+
+// ─── Spot & Cycle Tracking State ──────────────────────────────────────────────
+let allSpots = [];          // All non-overlapping start measures: [1, 1+L, 1+2L, ...]
+let unplayedSpots = [];     // Remaining unplayed start measures in current cycle
+let currentSpotStart = 1;   // The start measure currently displayed
+let currentSpotNumber = 1;  // 1-based index in the current cycle for display (e.g. Spot 3 / 8)
+let cycleCount = 1;         // How many full passes through the piece have been completed
 
 let isFullScoreMode = false;
-let currentStartMeasure = 1;
 let currentPageIndex = 0;
 let totalPages = 1;
 let osmdFullSVGs = []; // Extracted per-page SVGs from OSMD
@@ -32,6 +42,10 @@ const uploadNewBtn = document.getElementById('upload-new-btn');
 const passageLengthSelect = document.getElementById('passage-length');
 const startMeasureSelect = document.getElementById('start-measure');
 const scoreNavWrapper = document.getElementById('score-nav-wrapper');
+const spotProgress = document.getElementById('spot-progress');
+const cycleToast = document.getElementById('cycle-toast');
+const cycleToastText = document.getElementById('cycle-toast-text');
+let cycleToastTimer = null;
 
 // Toolbar Elements
 const toggleModeBtn = document.getElementById('toggle-mode-btn');
@@ -145,20 +159,95 @@ function shuffle(array) {
   return array;
 }
 
-function resetAvailableStarts() {
+function showCycleToast(message) {
+  if (!cycleToast) return;
+  if (cycleToastText) cycleToastText.textContent = message;
+  cycleToast.classList.remove('hidden');
+  clearTimeout(cycleToastTimer);
+  cycleToastTimer = setTimeout(() => {
+    cycleToast.classList.add('hidden');
+  }, 2400);
+}
+
+function updateSpotProgressDisplay() {
+  if (!spotProgress) return;
+  const total = allSpots.length || 1;
+  const current = Math.min(total, Math.max(1, currentSpotNumber));
+  spotProgress.textContent = `${current} / ${total}`;
+  const remaining = unplayedSpots.length;
+  spotProgress.title = `Spot ${current} of ${total} (Cycle ${cycleCount}, ${remaining} remaining)`;
+}
+
+function saveSpotCycleState() {
+  try {
+    localStorage.setItem(PREF_CURRENT_SPOT, String(currentSpotStart));
+    localStorage.setItem(PREF_UNPLAYED_SPOTS, JSON.stringify(unplayedSpots));
+    localStorage.setItem(PREF_SPOT_NUMBER, String(currentSpotNumber));
+    localStorage.setItem(PREF_CYCLE_COUNT, String(cycleCount));
+    if (startMeasureSelect) {
+      localStorage.setItem(PREF_SELECTED_START, startMeasureSelect.value);
+    }
+  } catch (err) {
+    console.warn('Failed to save spot cycle state to localStorage:', err);
+  }
+}
+
+function clearSpotCycleState() {
+  localStorage.removeItem(PREF_CURRENT_SPOT);
+  localStorage.removeItem(PREF_UNPLAYED_SPOTS);
+  localStorage.removeItem(PREF_SPOT_NUMBER);
+  localStorage.removeItem(PREF_CYCLE_COUNT);
+  localStorage.removeItem(PREF_SELECTED_START);
+}
+
+function restoreSavedSpotState() {
+  try {
+    const savedSpot = localStorage.getItem(PREF_CURRENT_SPOT);
+    const savedUnplayed = localStorage.getItem(PREF_UNPLAYED_SPOTS);
+    const savedNumber = localStorage.getItem(PREF_SPOT_NUMBER);
+    const savedCycle = localStorage.getItem(PREF_CYCLE_COUNT);
+    const savedSelected = localStorage.getItem(PREF_SELECTED_START);
+
+    if (savedSpot && savedUnplayed) {
+      const parsedUnplayed = JSON.parse(savedUnplayed);
+      const spot = parseInt(savedSpot, 10);
+      if (allSpots.includes(spot) && Array.isArray(parsedUnplayed)) {
+        currentSpotStart = spot;
+        unplayedSpots = parsedUnplayed;
+        currentSpotNumber = parseInt(savedNumber, 10) || (allSpots.length - unplayedSpots.length);
+        cycleCount = parseInt(savedCycle, 10) || 1;
+        if (savedSelected && startMeasureSelect && [...startMeasureSelect.options].some(o => o.value === savedSelected)) {
+          startMeasureSelect.value = savedSelected;
+        }
+        updateSpotProgressDisplay();
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to restore spot cycle state:', err);
+  }
+  return false;
+}
+
+function initSpotsCycle(preserveProgress = false) {
   if (totalMeasures === 0) return;
-  passageLength = parseInt(passageLengthSelect.value) || 4;
-  const maxStart = Math.max(1, totalMeasures - passageLength + 1);
-  availableStarts = [];
-  
-  // Repopulate the dropdown if it exists
+  passageLength = parseInt(passageLengthSelect.value, 10) || 2;
+
+  // Non-overlapping spots: 1, 1+L, 1+2L, ... covering the entire score
+  allSpots = [];
+  for (let s = 1; s <= totalMeasures; s += passageLength) {
+    allSpots.push(s);
+  }
+
+  // Repopulate startMeasureSelect dropdown with distinct spot ranges
   if (startMeasureSelect) {
     const currentVal = startMeasureSelect.value;
     startMeasureSelect.innerHTML = '<option value="random">Random</option>';
-    for (let i = 1; i <= totalMeasures; i++) {
+    for (const s of allSpots) {
+      const end = Math.min(totalMeasures, s + passageLength - 1);
       const opt = document.createElement('option');
-      opt.value = i;
-      opt.textContent = i;
+      opt.value = String(s);
+      opt.textContent = s === end ? `m. ${s}` : `mm. ${s}–${end}`;
       startMeasureSelect.appendChild(opt);
     }
     if (currentVal && [...startMeasureSelect.options].some(o => o.value === currentVal)) {
@@ -166,8 +255,11 @@ function resetAvailableStarts() {
     }
   }
 
-  for (let i = 1; i <= maxStart; i++) availableStarts.push(i);
-  shuffle(availableStarts);
+  if (!preserveProgress || unplayedSpots.length === 0) {
+    unplayedSpots = shuffle([...allSpots]);
+    currentSpotNumber = 0;
+  }
+  updateSpotProgressDisplay();
 }
 
 function showLoader(show) {
@@ -208,7 +300,7 @@ async function handleFile(file) {
   const reader = new FileReader();
   reader.onload = async (e) => {
     const content = e.target.result;
-    const success = await loadMusicData(file.name, content);
+    const success = await loadMusicData(file.name, content, true);
     if (success) {
       saveFileToStorage(file.name, content);
     }
@@ -220,7 +312,7 @@ async function handleFile(file) {
   }
 }
 
-async function loadMusicData(name, content) {
+async function loadMusicData(name, content, isNewUpload = false) {
   try {
     if (!osmdPassage) initOSMD();
     showLoader(true);
@@ -236,8 +328,12 @@ async function loadMusicData(name, content) {
     uploadSection.classList.add('hidden');
     viewerSection.classList.remove('hidden');
 
-    if (startMeasureSelect) startMeasureSelect.value = 'random';
-    resetAvailableStarts();
+    if (isNewUpload) {
+      clearSpotCycleState();
+    }
+
+    initSpotsCycle(true);
+    const restored = !isNewUpload && restoreSavedSpotState();
 
     // Reset to passage mode on new file load
     if (isFullScoreMode) {
@@ -245,7 +341,15 @@ async function loadMusicData(name, content) {
       exitFullScoreUI();
     }
 
-    showRandomPassage();
+    if (restored) {
+      renderPassage(currentSpotStart, passageLength);
+    } else {
+      if (startMeasureSelect) startMeasureSelect.value = 'random';
+      cycleCount = 1;
+      unplayedSpots = shuffle([...allSpots]);
+      currentSpotNumber = 0;
+      showRandomPassage();
+    }
     return true;
   } catch (err) {
     console.error('OSMD Load Error:', err);
@@ -268,15 +372,30 @@ function showRandomPassage() {
   viewerCanvas.classList.remove('full-score-view');
 
   let startMeasure;
-  const selected = startMeasureSelect.value;
+  const selected = startMeasureSelect ? startMeasureSelect.value : 'random';
   
   if (selected === 'random') {
-    if (availableStarts.length === 0) resetAvailableStarts();
-    startMeasure = availableStarts.pop();
+    // If all spots have been played at least once, start a new cycle and reshuffle
+    if (unplayedSpots.length === 0) {
+      cycleCount++;
+      unplayedSpots = shuffle([...allSpots]);
+      showCycleToast(`Cycle ${cycleCount - 1} complete! Reshuffled.`);
+    }
+    startMeasure = unplayedSpots.pop();
+    currentSpotNumber = allSpots.length - unplayedSpots.length;
   } else {
     startMeasure = parseInt(selected, 10);
+    // Mark spot as played by removing from unplayed pool if present
+    const idx = unplayedSpots.indexOf(startMeasure);
+    if (idx !== -1) {
+      unplayedSpots.splice(idx, 1);
+    }
+    currentSpotNumber = allSpots.length - unplayedSpots.length;
   }
 
+  currentSpotStart = startMeasure;
+  updateSpotProgressDisplay();
+  saveSpotCycleState();
   renderPassage(startMeasure, passageLength);
 }
 
@@ -515,7 +634,8 @@ uploadNewBtn.addEventListener('click', () => {
 passageLengthSelect.addEventListener('change', () => {
   passageLength = parseInt(passageLengthSelect.value, 10);
   localStorage.setItem(PREF_PASSAGE_LENGTH, String(passageLength));
-  resetAvailableStarts();
+  clearSpotCycleState();
+  initSpotsCycle(false);
   showRandomPassage();
 });
 
@@ -533,12 +653,12 @@ toggleModeBtn.addEventListener('click', async () => {
   } else {
     currentZoom = parseFloat(localStorage.getItem(PREF_ZOOM) || '1.0');
     exitFullScoreUI();
-    showRandomPassage();
+    renderPassage(currentSpotStart, passageLength);
   }
   updateZoomDisplay();
 });
 
-toggleMeasuresBtn.addEventListener('click', () => {
+toggleMeasuresBtn.addEventListener('click', async () => {
   drawMeasures = !drawMeasures;
   localStorage.setItem(PREF_SHOW_MEASURES, String(drawMeasures));
   
@@ -564,15 +684,9 @@ toggleMeasuresBtn.addEventListener('click', () => {
   
   // Re-render current view
   if (isFullScoreMode) {
-    showCurrentPage();
+    await renderFullScore();
   } else {
-    osmdPassage.render();
-    // After render, we need to re-apply the responsive SVG fix
-    const svg = musicContainer.querySelector('svg');
-    if (svg) {
-      svg.style.width = '100%';
-      svg.style.height = 'auto';
-    }
+    renderPassage(currentSpotStart, passageLength);
   }
 });
 
@@ -635,17 +749,28 @@ document.addEventListener('fullscreenchange', () => {
 
 // Keyboard navigation
 window.addEventListener('keydown', (e) => {
-  if (!isFullScoreMode || viewerSection.classList.contains('hidden')) return;
-  if (e.key === 'ArrowLeft') {
-    if (currentPageIndex > 0) {
-      currentPageIndex--;
-      showCurrentPage();
+  if (viewerSection.classList.contains('hidden')) return;
+
+  if (isFullScoreMode) {
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      if (currentPageIndex > 0) {
+        currentPageIndex--;
+        showCurrentPage();
+      }
+    } else if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+      if (currentPageIndex < totalPages - 1) {
+        currentPageIndex++;
+        showCurrentPage();
+      }
     }
-  }
-  if (e.key === 'ArrowRight') {
-    if (currentPageIndex < totalPages - 1) {
-      currentPageIndex++;
-      showCurrentPage();
+  } else {
+    // In Spot mode: Spacebar or ArrowRight triggers "New Spot"
+    if (e.code === 'Space' || e.key === 'ArrowRight') {
+      if (document.activeElement && (document.activeElement.tagName === 'SELECT' || document.activeElement.tagName === 'INPUT')) {
+        return;
+      }
+      e.preventDefault();
+      newPassageBtn.click();
     }
   }
 });
@@ -658,7 +783,7 @@ window.addEventListener('resize', () => {
   if (isFullScoreMode) {
     showCurrentPage();
   } else if (osmdPassage) {
-    osmdPassage.render();
+    renderPassage(currentSpotStart, passageLength);
   }
 });
 

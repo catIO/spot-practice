@@ -105,7 +105,7 @@
         <div id="top-toolbar" class="top-toolbar">
           <!-- Mode Switcher -->
           <div class="toolbar-section">
-            <button id="toggle-mode-btn" class="toolbar-text-btn" title="Toggle Mode" style="background-color: rgba(255,255,255,0.1);">
+            <button id="toggle-mode-btn" class="toolbar-text-btn" title="Toggle Mode">
                <span class="material-symbols-outlined" id="mode-icon">menu_book</span>
                <span id="mode-label">Full Score</span>
             </button>
@@ -115,28 +115,39 @@
 
           <!-- Navigation Area: Spot Mode -->
           <div class="toolbar-section" id="nav-section-spot">
-            <span class="toolbar-text">Bars</span>
-            <select id="passage-length" class="toolbar-select">
-              <option value="2" selected>2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="8">8</option>
-              <option value="12">12</option>
-            </select>
-            <span class="toolbar-text">Start</span>
-            <select id="start-measure" class="toolbar-select">
-              <option value="random">Random</option>
-            </select>
+            <label class="m3-select-chip" title="Passage length in bars">
+              <span class="m3-chip-label">Bars</span>
+              <select id="passage-length" class="m3-chip-select">
+                <option value="2" selected>2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="8">8</option>
+                <option value="12">12</option>
+              </select>
+            </label>
+            <label class="m3-select-chip" title="Select start measure / spot">
+              <span class="m3-chip-label">Spot</span>
+              <select id="start-measure" class="m3-chip-select">
+                <option value="random">Random</option>
+              </select>
+            </label>
+            <span id="spot-progress" class="toolbar-text spot-progress-badge" title="Current spot progress in cycle">1 / 1</span>
             <button id="new-passage-btn" class="toolbar-text-btn">
                <span class="material-symbols-outlined">shuffle</span> New Spot
             </button>
           </div>
+          <div id="cycle-toast" class="cycle-toast hidden">
+            <span class="material-symbols-outlined" style="font-size: 18px;">autorenew</span>
+            <span id="cycle-toast-text">Cycle complete! Reshuffled.</span>
+          </div>
 
           <!-- Navigation Area: Full Score Mode -->
           <div class="toolbar-section hidden" id="nav-section-full">
-            <span class="toolbar-text">Page</span>
-            <input type="number" id="page-input" class="toolbar-input" value="1" min="1" />
-            <span class="toolbar-text">/ <span id="total-pages-display">1</span></span>
+            <div class="m3-select-chip" title="Current page">
+              <span class="m3-chip-label">Page</span>
+              <input type="number" id="page-input" class="m3-chip-input" value="1" min="1" />
+              <span class="m3-chip-label" style="margin-left: 2px;">/ <span id="total-pages-display">1</span></span>
+            </div>
           </div>
 
           <div class="toolbar-divider"></div>
